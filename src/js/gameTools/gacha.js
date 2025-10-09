@@ -130,11 +130,15 @@ function generateOverview(records) {
             : records.length;
 
         const draws = nextIndex - records.indexOf(record);
-        const color = getDrawColor(draws, record.quality_level); // 获取颜色
-        // 判断是否为“歪”
+        const color = getDrawColor(draws, record.quality_level);
         const isOffBanner = isOffBanners(record, commonItems);
         return `
-            <div class="record">
+            <div class="record"
+                data-name="${record.name}"
+                data-time="${record.timestamp || '未知时间'}"
+                data-draws="${draws}"
+                data-color="${getColorByQuality(record.quality_level)}"
+                data-offbanner="${isOffBanner ? 'true' : 'false'}">
                 <span class="record-star gold">${record.quality_level} 星</span>
                 <span class="record-name" style="color: ${getColorByQuality(record.quality_level)};">${record.name}</span>
                 <span class="record-draws-with-off-banner">
@@ -146,66 +150,54 @@ function generateOverview(records) {
     }).join('');
 }
 function generateDetails(records) {
-    const groupedRecords = groupRecordsByDate(records); // 按日期分组
-    const fiveStarRecords = records.filter(r => r.quality_level === 5); // 筛选五星记录
-    const fourStarRecords = records.filter(r => r.quality_level === 4); // 筛选四星记录
+    const groupedRecords = groupRecordsByDate(records);
+    const fiveStarRecords = records.filter(r => r.quality_level === 5);
+    const fourStarRecords = records.filter(r => r.quality_level === 4);
 
-    return Object.keys(groupedRecords)
-        .map(date => {
-            const recordsForDate = groupedRecords[date]; // 获取该日期的所有记录
-            return `
-                <div class="record-date-group">
-                    <div class="record-date">${date}</div>
-                    ${recordsForDate.map(record => {
-                        let draws = '';
+    return Object.keys(groupedRecords).map(date => {
+        const recordsForDate = groupedRecords[date];
+        return `
+            <div class="record-date-group">
+                <div class="record-date">${date}</div>
+                ${recordsForDate.map(record => {
+                    let draws = '';
+                    if (record.quality_level === 5) {
+                        const currentIndex = records.indexOf(record);
+                        const nextIndex = fiveStarRecords.find(r => records.indexOf(r) > currentIndex);
+                        draws = nextIndex ? records.indexOf(nextIndex) - currentIndex : records.length - currentIndex;
+                    } else if (record.quality_level === 4) {
+                        const currentIndex = records.indexOf(record);
+                        const nextIndex = fourStarRecords.find(r => records.indexOf(r) > currentIndex);
+                        draws = nextIndex ? records.indexOf(nextIndex) - currentIndex : records.length - currentIndex;
+                    }
 
-                        if (record.quality_level === 5) {
-                            const currentIndex = records.indexOf(record);
-                            const nextIndex = fiveStarRecords.find(r => records.indexOf(r) > currentIndex);
-                            draws = nextIndex
-                                ? records.indexOf(nextIndex) - currentIndex
-                                : records.length - currentIndex;
-                        } else if (record.quality_level === 4) {
-                            const currentIndex = records.indexOf(record);
-                            const nextIndex = fourStarRecords.find(r => records.indexOf(r) > currentIndex);
-                            draws = nextIndex
-                                ? records.indexOf(nextIndex) - currentIndex
-                                : records.length - currentIndex;
-                        }
+                    const color = getDrawColor(draws, record.quality_level);
+                    const isOffBanner = isOffBanners(record, commonItems);
 
-                        const color = getDrawColor(draws, record.quality_level); // 获取颜色
-
-                        // 判断是否为“歪”
-                        const isOffBanner = isOffBanners(record, commonItems);
-
-                        return `
-                            <div class="record">
-                                <span class="record-star" style="color: ${getColorByQuality(record.quality_level)};">
-                                    ${record.quality_level} 星
-                                </span>
-                                <span class="record-name" style="color: ${getColorByQuality(record.quality_level)};">
-                                    ${record.name}
-                                </span>
-                                ${
-                                    draws
-                                        ? `<span class="record-draws-with-off-banner">
-                                            ${isOffBanner
-                                                ? `<span class="record-off-banner" title="常驻角色">歪</span>`
-                                                : ""
-                                            }
-                                            <span class="record-draws" style="color: ${color};">
-                                                ${draws} 抽
-                                            </span>
-                                        </span>`
-                                        : ""
-                                }
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            `;
-        })
-        .join('');
+                    return `
+                        <div class="record"
+                            data-name="${record.name}"
+                            data-time="${record.timestamp || '未知时间'}"
+                            data-draws="${draws || '-'}"
+                            data-color="${getColorByQuality(record.quality_level)}"
+                            data-offbanner="${isOffBanner ? 'true' : 'false'}">
+                            <span class="record-star" style="color: ${getColorByQuality(record.quality_level)};">
+                                ${record.quality_level} 星
+                            </span>
+                            <span class="record-name" style="color: ${getColorByQuality(record.quality_level)};">
+                                ${record.name}
+                            </span>
+                            ${draws ? `
+                                <span class="record-draws-with-off-banner">
+                                    ${isOffBanner ? `<span class="record-off-banner" title="常驻角色">歪</span>` : ""}
+                                    <span class="record-draws" style="color: ${color};">${draws} 抽</span>
+                                </span>` : ""}
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }).join('');
 }
 
 
@@ -371,8 +363,10 @@ function initRecordListTabs(records, poolSection) {
             // 切换记录显示内容
             if (tab.dataset.tab === 'overview') {
                 applySlideInAnimation(recordList, generateOverview(records));
+                initRecordTooltips()
             } else if (tab.dataset.tab === 'details') {
                 applySlideInAnimation(recordList, generateDetails(records));
+                initRecordTooltips()
             }
         });
     });
@@ -407,5 +401,40 @@ function initTabs() {
                 tabContainer.closest('.card-pool').querySelector(`#${targetPanel}`).classList.add('active');
             });
         });
+    });
+}
+
+// 页面加载后加载tooltip
+function initRecordTooltips() {
+    let tooltip = document.querySelector('.record-tooltip');
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.className = 'record-tooltip';
+        document.body.appendChild(tooltip);
+    }
+
+    // 每次都先解绑旧事件
+    document.querySelectorAll('.record').forEach(record => {
+        record.onmouseenter = e => {
+            const { name, rarity, time, type, pool, draws, offbanner } = e.currentTarget.dataset;
+            const color = record.dataset.color || "rgba(243, 213, 138, 0.8)";
+            tooltip.innerHTML = `
+                <div class="tooltip-title" style="color: ${color}; font-weight: bold;">${name}</div>
+                <div class="tooltip-body">
+                    <p><strong>时间：</strong>${time}</p>
+                    <p><strong>抽数：</strong>${draws}</p>
+                    ${offbanner === 'true' ? `<p><strong>歪：</strong>是</p>` : ""}
+                </div>
+            `;
+            tooltip.style.opacity = '1';
+        };
+        record.onmousemove = e => {
+            const offset = 14;
+            tooltip.style.left = `${e.pageX + offset}px`;
+            tooltip.style.top = `${e.pageY + offset}px`;
+        };
+        record.onmouseleave = () => {
+            tooltip.style.opacity = '0';
+        };
     });
 }

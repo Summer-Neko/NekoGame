@@ -252,6 +252,7 @@ async function gachaGenshinInit() {
     await loadPlayerUIDs(lastUid); // 加载玩家 UID 下拉框
     await loadGachaRecords(lastUid); // 加载对应记录
     initScrollLogic(); // 初始化滚动逻辑
+    initRecordTooltips();
 
     // 监听 UID 切换
     document.querySelector('.selected-display').addEventListener('click', async () => {

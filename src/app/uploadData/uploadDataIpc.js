@@ -209,111 +209,102 @@ async function checkFileExists(repoUrl, token, fileName, platform) {
 
 
 // 上传文件到仓库
-/**
- * 上传或更新文件到 GitHub/Gitee 仓库，强制保存在 NekoGame 文件夹内
- * @param {string} repoUrl  仓库地址，如 https://github.com/owner/repo
- * @param {string} token    访问令牌
- * @param {string} filePath 本地文件路径
- * @param {string} fileName 本地文件名（不含目录），如 'gacha_data.db'
- * @param {string} [branch] 分支名称，默认 'main'
- */
-async function uploadFileToRepo(repoUrl, token, filePath, fileName, branch = 'main') {
-  const maxRetries = 3;
-  let platformMessage = '';
+async function uploadFileToRepo(repoUrl, token, filePath, fileName) {
+    let platformMessage = '';
+    const maxRetries = 3; // 最大重试次数
+    let retries = 0;
 
-  try {
-    const { owner, repo, platform } = parseRepoUrl(repoUrl);
-    platformMessage = platform;
+    try {
+        const { owner, repo, platform } = parseRepoUrl(repoUrl);
+        platformMessage = platform;
+        const fileContent = fs.readFileSync(filePath);
+        const base64Content = fileContent.toString('base64');
 
-    // 把远程路径统一前缀为 NekoGame/
-    const remotePath = fileName.startsWith('NekoGame/')
-      ? fileName
-      : `NekoGame/${fileName}`;
-
-    // 读取并 Base64 编码文件
-    const fileContent = fs.readFileSync(filePath);
-    const base64Content = fileContent.toString('base64');
-    const commitMessage = `Update NekoGame 数据文件 (${fileName})`;
-
-    if (platform === 'github') {
-      // —— GitHub: 先 GET sha，再 PUT 创建/更新 ——
-      const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${remotePath}`;
-      const ghHeaders = {
-        Authorization: `token ${token}`,
-        Accept: 'application/vnd.github+json'
-      };
-
-      // 1.1. GET 元信息拿 sha
-      let existingSha = null;
-      try {
-        const meta = await axios.get(apiUrl, {
-          headers: ghHeaders,
-          params: { ref: branch }
-        });
-        existingSha = meta.data.sha;
-      } catch (err) {
-        if (!(err.response && err.response.status === 404)) {
-          throw err;
+        let apiUrl;
+        if (platform === 'gitee') {
+            apiUrl = `https://gitee.com/api/v5/repos/${owner}/${repo}/contents/NekoGame/${fileName}`;
+        } else if (platform === 'github') {
+            apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/NekoGame/${fileName}`;
+        } else {
+            throw new Error('不支持的仓库平台');
         }
-      }
 
-      // 1.2. PUT 创建或更新
-      const body = { message: commitMessage, content: base64Content, branch };
-      if (existingSha) body.sha = existingSha;
-      const resp = await axios.put(apiUrl, body, { headers: ghHeaders });
-      console.log(`${remotePath} 上传成功 (GitHub PUT):`, resp.data.content.path);
-      return;
+        // 检查文件是否存在
+        const existingSha = await checkFileExists(repoUrl, token, fileName, platform);
 
-    } else if (platform === 'gitee') {
-      // —— Gitee: POST/PUT + 重试 ——
-      const apiUrl = `https://gitee.com/api/v5/repos/${owner}/${repo}/contents/${remotePath}`;
-      const params = { access_token: token, branch };
-      const body = { message: commitMessage, content: base64Content };
+        let data = {
+            message: 'NekoGame数据文件',
+            content: base64Content
+        };
+        if (existingSha) {
+            data.sha = existingSha; // 添加 SHA 用于更新
+        }
 
-      // 先拿 gitee 上的 sha
-      let existingSha = null;
-      try {
-        existingSha = await checkFileExists(repoUrl, token, remotePath, platform, branch);
-      } catch (e) { /* 忽略 */ }
-      if (existingSha) body.sha = existingSha;
-
-      const method = existingSha ? 'put' : 'post';
-      let tries = 0;
-      while (true) {
         try {
-          const resp = await axios[method](apiUrl, body, { params });
-          console.log(`${remotePath} 上传成功 (Gitee ${method.toUpperCase()}):`, resp.data.content.path);
-          return;
-        } catch (err) {
-          if (++tries >= maxRetries || existingSha) throw err;
-          console.warn(`Gitee POST 失败，重试 (${tries}/${maxRetries})…`, err.message);
-          await new Promise(r => setTimeout(r, 500));
+            if (existingSha) {
+                console.log(`尝试更新文件 (PUT): ${fileName}`);
+                // 文件存在，尝试 PUT 更新
+                const response = await axios.put(apiUrl, data, {
+                    headers: platform === 'github'
+                        ? { 'Authorization': `Bearer ${token}` }
+                        : {},
+                    params: platform === 'gitee' ? { access_token: token } : {}
+                });
+                console.log(fileName, '更新成功', response.data.message);
+            } else {
+                throw new Error('文件不存在，准备进行 POST 上传');
+            }
+        } catch (error) {
+            if (error.response) {
+                console.error(`PUT 请求失败，错误信息: ${error.response.data.message}`);
+            } else {
+                console.error(`PUT 请求失败: ${error.message}`);
+            }
+            console.log(`尝试上传文件 (POST): ${fileName}`);
+            // 如果 PUT 失败，尝试 POST 上传
+            delete data.sha; // 删除 SHA 用于 POST 上传
+            while (retries < maxRetries) {
+                try {
+                    const response = await axios.post(apiUrl, data, {
+                        headers: platform === 'github'
+                            ? { 'Authorization': `Bearer ${token}` }
+                            : {},
+                        params: platform === 'gitee' ? { access_token: token } : {}
+                    });
+                    console.log(fileName, '上传成功 (POST)', response.data.message);
+                    return; // POST 成功后直接返回
+                } catch (error) {
+                    retries++;
+                    console.error(`POST 上传失败 (尝试 ${retries}/${maxRetries}):`, error.message);
+                    if (retries >= maxRetries) {
+                        throw new Error(`POST 上传失败: ${error.message}`);
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 500)); // 等待 500ms 重试
+                }
+            }
         }
-      }
-
-    } else {
-      throw new Error(`不支持的平台：${platform}`);
+    } catch (error) {
+        let errorMessage = `${fileName}上传失败\n平台:${platformMessage}\n`;
+        if (error.response) {
+            const status = error.response.status;
+            if (status === 401) {
+                errorMessage += 'Token 无效或已过期，请更新 Token 后重试。';
+                console.warn(`${fileName} 上传失败: Token 无效或已过期`);
+            } else if (status === 403) {
+                errorMessage += '权限不足，无法完成操作，请检查 Token 权限。';
+                console.warn(`${fileName} 上传失败: 权限不足`);
+            } else {
+                errorMessage += `错误状态: ${status}\n错误详情: ${error.response.data.message || '无详细信息'}`;
+                console.error(`${fileName} 上传失败:`, error.response.data);
+            }
+            global.Notify(false, errorMessage);
+        } else {
+            // 未知错误
+            errorMessage += `未知错误: ${error.message}`;
+            console.error(`${fileName} 上传失败:`, error.message);
+            global.Notify(false, errorMessage);
+        }
     }
-
-  } catch (err) {
-    let errMsg = `${fileName} 上传失败 (${platformMessage})\n`;
-    if (err.response) {
-      const status = err.response.status;
-      if (status === 401) {
-        errMsg += 'Token 无效或已过期，请更新后重试。';
-      } else if (status === 403) {
-        errMsg += '权限不足，请检查 Token 权限。';
-      } else if (status === 404 && platformMessage === 'github') {
-        errMsg += 'GitHub 返回 404，可能是路径不存在或 Token 权限不足。';
-      } else {
-        errMsg += `状态码: ${status}\n详情: ${err.response.data?.message}`;
-      }
-    } else {
-      errMsg += `未知错误: ${err.message}`;
-    }
-    console.error(errMsg);
-    global.Notify(false, errMsg);
-  }
 }
 
 const {backupFile} = require("./backupData");
@@ -354,10 +345,10 @@ async function downloadFileFromRepo(repoUrl, token, fileName, localPath) {
 }
 // 计算文件的 hash 值
 function calculateFileHash(filePath) {
-    const fileBuffer = fs.readFileSync(filePath);
-    const hash = crypto.createHash('sha256');
-    hash.update(fileBuffer);
-    return hash.digest('hex');  // 返回文件的 hash 值
+  const fileBuffer = fs.readFileSync(filePath);
+  const hash = crypto.createHash('sha256');
+  hash.update(fileBuffer);
+  return hash.digest('hex');  // 返回文件的 hash 值
 }
 
 // 数据同步代码
@@ -372,7 +363,7 @@ async function autoUploadOrDownload(repoUrl, token, localFilePath, fileName) {
     } else {
         console.log('localFileTimestamp,giteeFileTimestamp', localFileTimestamp,giteeFileTimestamp);
         // 定义时间范围
-        const TIME_TOLERANCE = 600000; // 60分钟
+        const TIME_TOLERANCE = 6000000; // 10小时
         const timeDiff = Math.abs(localFileTimestamp - giteeFileTimestamp);
         if (timeDiff <= TIME_TOLERANCE) {
             console.log('本地文件和仓库中文件时间差异较小，无需同步');

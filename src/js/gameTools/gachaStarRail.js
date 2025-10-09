@@ -221,38 +221,39 @@ async function loadGachaRecords(uid) {
 
 
 
-    // 添加滚动逻辑
-    function initScrollLogic() {
-        const recordDisplay = document.getElementById('record-display');
-        if (!recordDisplay) {
-            console.error('Error: Element with ID "record-display" not found.');
-            return;
+// 添加滚动逻辑
+function initScrollLogic() {
+    const recordDisplay = document.getElementById('record-display');
+    if (!recordDisplay) {
+        console.error('Error: Element with ID "record-display" not found.');
+        return;
+    }
+
+    recordDisplay.addEventListener('wheel', (event) => {
+        const target = event.target.closest('.record-list');
+        if (target) {
+            if (
+                (event.deltaY < 0 && target.scrollTop > 0) || // 向上滚动
+                (event.deltaY > 0 && target.scrollTop + target.offsetHeight < target.scrollHeight) // 向下滚动
+            ) {
+                return;
+            }
         }
 
-        recordDisplay.addEventListener('wheel', (event) => {
-            const target = event.target.closest('.record-list');
-            if (target) {
-                if (
-                    (event.deltaY < 0 && target.scrollTop > 0) || // 向上滚动
-                    (event.deltaY > 0 && target.scrollTop + target.offsetHeight < target.scrollHeight) // 向下滚动
-                ) {
-                    return;
-                }
-            }
-
-            // 横向滚动逻辑
-            recordDisplay.scrollLeft += event.deltaY;
-            event.preventDefault(); // 阻止页面默认行为
-        });
-    }
+        // 横向滚动逻辑
+        recordDisplay.scrollLeft += event.deltaY;
+        event.preventDefault(); // 阻止页面默认行为
+    });
+}
 
 
 // 监听 UID 切换
-    async function gachaStarRailInit() {
-        const lastUid = await window.electronAPI.invoke('get-last-starRail-uid');
-        await loadPlayerUIDs(lastUid); // 加载玩家 UID 下拉框
-        await loadGachaRecords(lastUid); // 加载对应记录
-        initScrollLogic(); // 初始化滚动逻辑
+async function gachaStarRailInit() {
+    const lastUid = await window.electronAPI.invoke('get-last-starRail-uid');
+    await loadPlayerUIDs(lastUid); // 加载玩家 UID 下拉框
+    await loadGachaRecords(lastUid); // 加载对应记录
+    initScrollLogic(); // 初始化滚动逻辑
+    initRecordTooltips();
 
     // 监听 UID 切换
     document.querySelector('.selected-display').addEventListener('click', async () => {

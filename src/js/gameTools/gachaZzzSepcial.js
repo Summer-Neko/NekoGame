@@ -114,7 +114,12 @@ function generateOverviewZzz(records) {
         // 判断是否为“歪”
         const isOffBanner = isOffBannersZzz(record, commonItems);
         return `
-            <div class="record">
+            <div class="record"
+                data-name="${record.name}"
+                data-time="${record.timestamp || '未知时间'}"
+                data-draws="${draws}"
+                data-color="${getColorByQualityZzz(record.quality_level)}"
+                data-offbanner="${isOffBanner ? 'true' : 'false'}">
                 <span class="record-star gold">${getQualityLetter(record.quality_level)} 级</span>
                 <span class="record-name" style="color: ${getColorByQualityZzz(record.quality_level)};">${record.name}</span>
                 <span class="record-draws-with-off-banner">
@@ -159,7 +164,12 @@ function generateDetailsZzz(records) {
                         const isOffBanner = isOffBannersZzz(record, commonItems);
 
                         return `
-                            <div class="record">
+                            <div class="record"
+                                data-name="${record.name}"
+                                data-time="${record.timestamp || '未知时间'}"
+                                data-draws="${draws || '-'}"
+                                data-color="${getColorByQualityZzz(record.quality_level)}"
+                                data-offbanner="${isOffBanner ? 'true' : 'false'}">
                                 <span class="record-star" style="color: ${getColorByQualityZzz(record.quality_level)};">
                                     ${getQualityLetter(record.quality_level)} 级
                                 </span>

@@ -4,15 +4,35 @@ const path = require('path');
 const os = require('os');
 const url = require('url');
 
-function getGamePath() {
-    const appData = path.join(os.homedir(), 'AppData', 'LocalLow', 'miHoYo', '崩坏：星穹铁道');
-    const logPaths = [
-        path.join(appData, 'Player.log'),
-        path.join(appData, 'Player-prev.log'),
+const GameLogPath = {
+    CN: path.join('miHoYo', '崩坏：星穹铁道'),
+    GLOBAL: path.join('Cognosphere', 'Star Rail')
+};
+
+function getGameLogPath() {
+    const basePath = path.join(os.homedir(), 'AppData', 'LocalLow');
+    const candidatePaths = [
+        path.join(basePath, GameLogPath.CN),
+        path.join(basePath, GameLogPath.GLOBAL),
     ];
-    for (const logPath of logPaths) {
-        if (fs.existsSync(logPath)) {
-            const content = fs.readFileSync(logPath, 'utf-8');
+
+    for (const candidate of candidatePaths) {
+        const logFile = path.join(candidate, 'Player.log');
+        if (fs.existsSync(logFile)) {
+            return logFile;
+        }
+    }
+    return null;
+}
+
+function getGameInstallPath() {
+    const logPath = getGameLogPath();
+    if (!logPath) return null;
+
+    const logFiles = [logPath, logPath.replace('Player.log', 'Player-prev.log')];
+    for (const file of logFiles) {
+        if (fs.existsSync(file)) {
+            const content = fs.readFileSync(file, 'utf-8');
             const match = content.match(/Loading player data from (.+?)data\.unity3d/);
             if (match) {
                 return match[1].trim();
@@ -76,7 +96,7 @@ ipcMain.handle('getStarRailUrl', async () => {
 
 
 function getStarRailLink() {
-    const gamePath = getGamePath();
+    const gamePath = getGameInstallPath();
     if (!gamePath) return { success: false, message: '未找到日志文件，请启动过游戏后再尝试。' };
     const cachePath = getLatestCachePath(gamePath);
     if (!cachePath) return { success: false, message: '未找到缓存文件，请确保你下载了这款游戏。' };
