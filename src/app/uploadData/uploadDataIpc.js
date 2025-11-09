@@ -101,8 +101,14 @@ ipcMain.on('closeDataSyncWindow', () => {
 
 // 获取当前文件的时间戳
 function getFileTimestamp(filePath) {
-    const stats = fs.statSync(filePath);
-    return Math.floor(stats.mtime.getTime() / 1000) * 1000;  // 转换为毫秒级时间戳
+    // 本地文件一定存在时，可直接读取
+    try {
+        const stats = fs.statSync(filePath);
+        return Math.floor(stats.mtime.getTime() / 1000) * 1000;  // 转换为毫秒级时间戳
+    } catch (e) {
+        console.warn(`无法获取文件时间戳: ${filePath}`, e.message);
+        return null;
+    }
 }
 
 
@@ -217,6 +223,7 @@ async function uploadFileToRepo(repoUrl, token, filePath, fileName) {
     try {
         const { owner, repo, platform } = parseRepoUrl(repoUrl);
         platformMessage = platform;
+
         const fileContent = fs.readFileSync(filePath);
         const base64Content = fileContent.toString('base64');
 
@@ -229,57 +236,40 @@ async function uploadFileToRepo(repoUrl, token, filePath, fileName) {
             throw new Error('不支持的仓库平台');
         }
 
-        // 检查文件是否存在
+        // 检查文件是否存在，存在返回 sha，不存在返回 null
         const existingSha = await checkFileExists(repoUrl, token, fileName, platform);
 
-        let data = {
-            message: 'NekoGame数据文件',
-            content: base64Content
-        };
-        if (existingSha) {
-            data.sha = existingSha; // 添加 SHA 用于更新
-        }
+        // 统一先 PUT
+        const data = existingSha
+          ? { message: 'NekoGame数据文件', content: base64Content, sha: existingSha }
+          : { message: 'NekoGame数据文件', content: base64Content };
 
         try {
-            if (existingSha) {
-                console.log(`尝试更新文件 (PUT): ${fileName}`);
-                // 文件存在，尝试 PUT 更新
-                const response = await axios.put(apiUrl, data, {
-                    headers: platform === 'github'
-                        ? { 'Authorization': `Bearer ${token}` }
-                        : {},
-                    params: platform === 'gitee' ? { access_token: token } : {}
-                });
-                console.log(fileName, '更新成功', response.data.message);
-            } else {
-                throw new Error('文件不存在，准备进行 POST 上传');
-            }
-        } catch (error) {
-            if (error.response) {
-                console.error(`PUT 请求失败，错误信息: ${error.response.data.message}`);
-            } else {
-                console.error(`PUT 请求失败: ${error.message}`);
-            }
+            const response = await axios.put(apiUrl, data, {
+                headers: platform === 'github' ? { Authorization: `Bearer ${token}` } : {},
+                params: platform === 'gitee' ? { access_token: token } : {}
+            });
+            console.log(fileName, '更新/创建成功 (PUT)', response.data?.commit?.message || '');
+            return;
+        } catch (putErr) {
+            // GitHub: 不支持 /contents 的 POST 创建，直接抛错
+            if (platform !== 'gitee') throw putErr;
+
+            const postData = { message: 'NekoGame数据文件', content: base64Content };
             console.log(`尝试上传文件 (POST): ${fileName}`);
-            // 如果 PUT 失败，尝试 POST 上传
-            delete data.sha; // 删除 SHA 用于 POST 上传
             while (retries < maxRetries) {
                 try {
-                    const response = await axios.post(apiUrl, data, {
-                        headers: platform === 'github'
-                            ? { 'Authorization': `Bearer ${token}` }
-                            : {},
-                        params: platform === 'gitee' ? { access_token: token } : {}
+                    const response = await axios.post(apiUrl, postData, {
+                        headers: {},
+                        params: { access_token: token }
                     });
-                    console.log(fileName, '上传成功 (POST)', response.data.message);
-                    return; // POST 成功后直接返回
-                } catch (error) {
+                    console.log(fileName, '上传成功 (POST)', response.data?.commit?.message || '');
+                    return;
+                } catch (postErr) {
                     retries++;
-                    console.error(`POST 上传失败 (尝试 ${retries}/${maxRetries}):`, error.message);
-                    if (retries >= maxRetries) {
-                        throw new Error(`POST 上传失败: ${error.message}`);
-                    }
-                    await new Promise(resolve => setTimeout(resolve, 500)); // 等待 500ms 重试
+                    console.error(`POST 上传失败 (尝试 ${retries}/${maxRetries}):`, postErr.message);
+                    if (retries >= maxRetries) throw postErr;
+                    await new Promise(r => setTimeout(r, 500));
                 }
             }
         }
@@ -287,30 +277,24 @@ async function uploadFileToRepo(repoUrl, token, filePath, fileName) {
         let errorMessage = `${fileName}上传失败\n平台:${platformMessage}\n`;
         if (error.response) {
             const status = error.response.status;
-            if (status === 401) {
-                errorMessage += 'Token 无效或已过期，请更新 Token 后重试。';
-                console.warn(`${fileName} 上传失败: Token 无效或已过期`);
-            } else if (status === 403) {
-                errorMessage += '权限不足，无法完成操作，请检查 Token 权限。';
-                console.warn(`${fileName} 上传失败: 权限不足`);
-            } else {
-                errorMessage += `错误状态: ${status}\n错误详情: ${error.response.data.message || '无详细信息'}`;
-                console.error(`${fileName} 上传失败:`, error.response.data);
-            }
-            global.Notify(false, errorMessage);
+            if (status === 401) errorMessage += '认证失败：Token 可能无效或权限不足';
+            else if (status === 403) errorMessage += '权限不足或 API 受限（可能限流）';
+            else if (status === 404) errorMessage += '路径不存在（检查 NekoGame/ 目录与文件名）';
+            else errorMessage += `HTTP ${status}: ${error.response.data?.message || '未知错误'}`;
         } else {
-            // 未知错误
-            errorMessage += `未知错误: ${error.message}`;
-            console.error(`${fileName} 上传失败:`, error.message);
-            global.Notify(false, errorMessage);
+            errorMessage += error.message;
         }
+        global.Notify(false, errorMessage);
+        console.error('数据上传失败:', error);
+        throw error; // 让上层感知
     }
 }
+
 
 const {backupFile} = require("./backupData");
 // 从仓库下载文件
 async function downloadFileFromRepo(repoUrl, token, fileName, localPath) {
-    const { owner, repo, platform } = parseRepoUrl(repoUrl);  // 解析 repoUrl 获取 owner 和 repo
+    const { owner, repo, platform } = parseRepoUrl(repoUrl);
     let apiUrl;
 
     if (platform === 'gitee') {
@@ -327,22 +311,32 @@ async function downloadFileFromRepo(repoUrl, token, fileName, localPath) {
             await backupFile(localPath, fileName);
         }
 
-        const headers = platform === 'github' ? {
-            'Authorization': `Bearer ${token}`
-        } : {};
-        const response = await axios.get(apiUrl, {
-            params: platform === 'gitee' ? { access_token: token } : {},
-            headers: headers
-        });
+        const headers = platform === 'github' ? { Authorization: `Bearer ${token}` } : {};
+        const params  = platform === 'gitee'  ? { access_token: token } : {};
 
-        const fileContent = Buffer.from(response.data.content, 'base64');
-        fs.writeFileSync(localPath, fileContent);
+        // 先拿元数据
+        const meta = await axios.get(apiUrl, { params, headers });
+
+        if (platform === 'github' && meta.data?.download_url) {
+            // 优先使用 download_url 直下二进制
+            const bin = await axios.get(meta.data.download_url, { responseType: 'arraybuffer', headers });
+            fs.writeFileSync(localPath, Buffer.from(bin.data));
+        } else if (meta.data?.content) {
+            // 回退到 content base64
+            const fileContent = Buffer.from(meta.data.content, 'base64');
+            fs.writeFileSync(localPath, fileContent);
+        } else {
+            throw new Error('无法从 API 获取文件内容（content 为空且无 download_url）');
+        }
+
         console.log('文件下载成功:', fileName);
     } catch (error) {
         global.Notify(false, `${fileName}下载失败\n平台:${platform}\n${error.response ? error.response.data.message : error.message}`);
         console.error('数据下载失败:', error);
+        throw error;
     }
 }
+
 // 计算文件的 hash 值
 function calculateFileHash(filePath) {
   const fileBuffer = fs.readFileSync(filePath);
@@ -355,6 +349,10 @@ function calculateFileHash(filePath) {
 async function autoUploadOrDownload(repoUrl, token, localFilePath, fileName) {
     const { owner, repo, platform } = parseRepoUrl(repoUrl);
     const localFileTimestamp = getFileTimestamp(localFilePath);
+    if (localFileTimestamp === null) {
+        console.log('本地文件不存在或无法读取，跳过同步逻辑。');
+        return;
+    }
     const giteeFileTimestamp = await getFileTimestampFromRepo(repoUrl, token, fileName);
     if (giteeFileTimestamp === null) {
         // 如果 Gitee 或者 Github 上文件不存在，上传本地文件
@@ -383,19 +381,20 @@ async function autoUploadOrDownload(repoUrl, token, localFilePath, fileName) {
 }
 
 // 初始化上传下载
-function initUpload() {
+async function initUpload() {
     const config = loadSyncConfigFromFile();
     if (config) {
-        const { decryptedRepoUrl, decryptedToken} = config;
-        const neko_gameFilePath = path.join(process.env.NEKO_GAME_FOLDER_PATH, 'neko_game.db');
+        const { decryptedRepoUrl, decryptedToken } = config;
+        const neko_gameFilePath  = path.join(process.env.NEKO_GAME_FOLDER_PATH, 'neko_game.db');
         const gacha_dataFilePath = path.join(process.env.NEKO_GAME_FOLDER_PATH, 'gacha_data.db');
-        // 自动执行上传或下载操作
+        // 自动执行上传或下载操作（等待完成，避免前端过早提示成功）
         console.log('准备同步neko_game.db');
-        autoUploadOrDownload(decryptedRepoUrl, decryptedToken, neko_gameFilePath, 'neko_game.db');
+        await autoUploadOrDownload(decryptedRepoUrl, decryptedToken, neko_gameFilePath, 'neko_game.db');
         console.log('准备同步gacha_data.db');
-        autoUploadOrDownload(decryptedRepoUrl, decryptedToken, gacha_dataFilePath, 'gacha_data.db');
+        await autoUploadOrDownload(decryptedRepoUrl, decryptedToken, gacha_dataFilePath, 'gacha_data.db');
     }
 }
+
 
 
 initUpload();
