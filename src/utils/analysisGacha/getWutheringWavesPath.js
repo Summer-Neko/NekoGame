@@ -1,4 +1,5 @@
 const { exec } = require('child_process');
+const { ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const iconv = require('iconv-lite');
@@ -126,5 +127,44 @@ function extractGachaUrl(logFilePath) {
         });
     });
 }
+
+ipcMain.handle('clear-wuwa-url-cache', async () => {
+  try {
+    const logFilePath = await getGamePath(); // 你现成的：返回 Client.log 的完整路径
+
+    // 日志文件存在：直接高亮
+    if (logFilePath && fs.existsSync(logFilePath)) {
+      shell.showItemInFolder(logFilePath);
+      return {
+        success: true,
+        message: `已打开鸣潮日志文件位置\n${logFilePath}`,
+        path: logFilePath,
+      };
+    }
+
+    if (logFilePath) {
+      const dir = path.dirname(logFilePath);
+      if (fs.existsSync(dir)) {
+        await shell.openPath(dir);
+        return {
+          success: false,
+          message:
+            `未找到日志文件 Client.log，但已打开目录：\n${dir}\n` +
+            `请确认游戏已启动并生成日志（Client.log / Client-prev.log）。`,
+          path: dir,
+        };
+      }
+    }
+
+    return {
+      success: false,
+      message: '无法定位鸣潮日志文件，请在游戏库中手动导入/更新 Wuthering Waves.exe 后重试。',
+    };
+  } catch (error) {
+    console.error('[clear-wuwa-url-cache] error:', error);
+    return { success: false, message: `操作失败: ${error.message}` };
+  }
+});
+
 
 module.exports = { getGamePath, extractGachaUrl };

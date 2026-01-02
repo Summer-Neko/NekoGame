@@ -1,4 +1,4 @@
-const { ipcMain, clipboard } = require('electron');
+const { ipcMain, clipboard,shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
@@ -102,5 +102,71 @@ async function getGenshinWishUrl() {
         return { success: false, message: `操作失败: ${error.message}` };
     }
 }
+
+function getGenshinCacheFilePath() {
+  const logPath = getLogPath();
+  if (!logPath) {
+    return { success: false, message: '未找到原神日志文件，请确认游戏是否启动过。' };
+  }
+
+  const logContent = fs.readFileSync(logPath, 'utf-8');
+  const gameDir = extractGameDir(logContent);
+  if (!gameDir) {
+    return { success: false, message: '无法解析游戏路径，请确保日志文件完整。' };
+  }
+
+  const cacheVersion = getLatestCacheVersion(gameDir);
+  const cacheFilePath = path.join(
+    gameDir,
+    'webCaches',
+    cacheVersion,
+    'Cache',
+    'Cache_Data',
+    'data_2'
+  );
+
+  return { success: true, gameDir, cacheVersion, cacheFilePath };
+}
+
+/**
+ * 打开缓存文件所在目录并高亮 data_2
+ */
+ipcMain.handle('clear-genshin-url-cache', async () => {
+  try {
+    const info = getGenshinCacheFilePath();
+    if (!info.success) return info;
+
+    const { cacheFilePath } = info;
+
+    if (fs.existsSync(cacheFilePath)) {
+      // 打开资源管理器并高亮该文件
+      shell.showItemInFolder(cacheFilePath);
+      return {
+        success: true,
+        message: `已打开缓存文件位置\n${cacheFilePath}`,
+        path: cacheFilePath,
+      };
+    } else {
+      // 文件不存在：至少打开目录（避免 showItemInFolder 无效）
+      const dir = path.dirname(cacheFilePath);
+      if (fs.existsSync(dir)) {
+        await shell.openPath(dir);
+        return {
+          success: false,
+          message: `未找到缓存文件 data_2，但已打开目录：\n${dir}\n请确认游戏已启动并打开过祈愿页面。`,
+          path: dir,
+        };
+      }
+
+      return {
+        success: false,
+        message: `未找到缓存目录：\n${dir}\n请确认游戏已启动过。`,
+      };
+    }
+  } catch (error) {
+    console.error('[clear-genshin-url-cache] error:', error);
+    return { success: false, message: `操作失败: ${error.message}` };
+  }
+});
 
 module.exports = { getGenshinWishUrl };

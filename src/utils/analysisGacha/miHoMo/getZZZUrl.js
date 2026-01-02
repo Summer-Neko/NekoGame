@@ -1,4 +1,4 @@
-const { ipcMain, clipboard } = require('electron');
+const { ipcMain, clipboard,shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
@@ -106,5 +106,74 @@ async function getZZZUrl(){
         return { success: false, message: `绝区零获取祈愿纪录失败\n错误信息: ${error.message}` };
     }
 }
+
+async function getZZZCacheFileInfo() {
+  const gameDir = await queryGamePathFromDb(); // 例如 D:\Games\ZZZ\
+  const cacheVersion = getLatestCacheVersion(gameDir);
+
+  const cacheFilePath = path.join(
+    gameDir,
+    'ZenlessZoneZero_Data',
+    'webCaches',
+    cacheVersion,
+    'Cache',
+    'Cache_Data',
+    'data_2'
+  );
+
+  return { gameDir, cacheVersion, cacheFilePath };
+}
+
+/**
+ * 打开缓存文件所在目录并高亮 data_2
+ */
+ipcMain.handle('clear-zzz-url-cache', async () => {
+  try {
+    const { cacheFilePath } = await getZZZCacheFileInfo();
+
+    if (fs.existsSync(cacheFilePath)) {
+      shell.showItemInFolder(cacheFilePath);
+      return {
+        success: true,
+        message: `已打开并高亮缓存文件（data_2）\n${cacheFilePath}`,
+        path: cacheFilePath
+      };
+    }
+
+    // 文件不存在：尽量打开 Cache_Data 目录或上级目录
+    const cacheDataDir = path.dirname(cacheFilePath); // .../Cache_Data
+    const cacheDir = path.dirname(cacheDataDir);      // .../Cache
+
+    if (fs.existsSync(cacheDataDir)) {
+      await shell.openPath(cacheDataDir);
+      return {
+        success: false,
+        message:
+          `未找到缓存文件 data_2，但已打开目录：\n${cacheDataDir}\n` +
+          `请确认：已启动游戏并打开过【调频/抽卡记录】页面后再试。`,
+        path: cacheDataDir
+      };
+    }
+
+    if (fs.existsSync(cacheDir)) {
+      await shell.openPath(cacheDir);
+      return {
+        success: false,
+        message:
+          `未找到 Cache_Data 目录，但已打开目录：\n${cacheDir}\n` +
+          `请确认：已启动游戏并打开过【调频/抽卡记录】页面后再试。`,
+        path: cacheDir
+      };
+    }
+
+    return {
+      success: false,
+      message: `未找到缓存目录：\n${cacheDir}\n请确认游戏是否启动过。`
+    };
+  } catch (error) {
+    console.error('[clear-zzz-url-cache] error:', error);
+    return { success: false, message: `操作失败: ${error.message}` };
+  }
+});
 
 module.exports = { getZZZUrl }

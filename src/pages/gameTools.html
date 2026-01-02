@@ -4,36 +4,21 @@
         <div class="tool-card" data-tool="gachaWuwa">
             <h3 class="tool-title">鸣潮唤取分析</h3>
             <p class="tool-description">进入获取与查看鸣潮抽卡记录</p>
-            <div class="tool-actions">
-                <button id = 'exportWuWa' class="action-button-export">导出数据</button>
-            </div>
         </div>
 
         <div class="tool-card" data-tool="gachaStarRail">
             <h3 class="tool-title">崩铁跃迁分析</h3>
             <p class="tool-description">进入获取与查看崩铁抽卡记录</p>
-            <div class="tool-actions">
-                <button id = 'exportStarRail' class="action-button-export">导出数据</button>
-                <button id = 'importStarRail' class="action-button-import">导入数据</button>
-            </div>
         </div>
 
         <div class="tool-card" data-tool="gachaGenshin">
             <h3 class="tool-title">原神祈愿分析</h3>
             <p class="tool-description">进入获取与查看原神抽卡记录</p>
-            <div class="tool-actions">
-                <button id = 'exportGenshin' class="action-button-export">导出数据</button>
-                <button id = 'importGenshin' class="action-button-import">导入数据</button>
-            </div>
         </div>
 
         <div class="tool-card" data-tool="gachaZzz">
             <h3 class="tool-title">绝区零频段分析</h3>
             <p class="tool-description">进入获取与查看绝区零抽卡记录</p>
-            <div class="tool-actions">
-                <button id = 'exportZzz' class="action-button-export">导出数据</button>
-                <button id = 'importZzz' class="action-button-import">导入数据</button>
-            </div>
         </div>
 
         <div class="tool-card" data-tool="gachaPlanning">
@@ -78,6 +63,83 @@
             <button id="confirmUIDSelection" class="modal-button primary">确认</button>
         </div>
     </div>
+</div>
+
+<!-- 新增：隐藏卡池弹窗 -->
+<div id="hidePoolsModal" class="modal">
+    <div class="modal-content-game">
+        <div class="modal-header-game">
+            <h2>隐藏卡池</h2>
+            <button id="closeHidePoolsModal" class="close-button">&times;</button>
+        </div>
+
+        <div class="modal-body-game">
+            <div id="hidePoolsList" class="uid-list"></div>
+            <p style="opacity:0.8; font-size: 0.85rem; margin-top: 8px;">
+                选中后该卡池将不在页面展示（仅影响显示，不删除数据）。
+            </p>
+        </div>
+
+        <div class="modal-footer-game">
+            <button id="hidePoolsSelectAll" class="modal-button">全选</button>
+            <button id="hidePoolsConfirm" class="modal-button primary">应用</button>
+        </div>
+    </div>
+</div>
+
+<div id="deleteByTimeModal" class="modal">
+  <div class="modal-content-game">
+    <div class="modal-header-game">
+      <h2>删除特定时间段的抽卡记录</h2>
+      <button id="closeDeleteByTimeModal" class="close-button">&times;</button>
+    </div>
+
+    <div class="modal-body-game">
+      <div class="form-row">
+        <div class="form-label">UID</div>
+        <div class="form-value">
+          <span id="deleteByTimeUidText">-</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-label">此账号有</div>
+        <div class="form-value">
+          <span id="deleteByTimeTotalText">0</span> 条抽卡记录
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-label">记录范围</div>
+        <div class="form-value">
+          <span id="deleteByTimeRangeText">-</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-label">起始时间</div>
+        <div class="form-value">
+          <input id="deleteStartTime" type="datetime-local" class="time-input" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-label">结束时间</div>
+        <div class="form-value">
+          <input id="deleteEndTime" type="datetime-local" class="time-input" />
+        </div>
+      </div>
+
+      <div class="danger-hint">
+        删除操作不可撤销，且后续只能获取近半年的抽卡记录,请确认时间范围正确。
+      </div>
+    </div>
+
+    <div class="modal-footer-game">
+      <button id="confirmDeleteByTime" class="modal-button primary">删除</button>
+      <button id="cancelDeleteByTime" class="modal-button">取消</button>
+    </div>
+  </div>
 </div>
 <!-- 引入样式 -->
 <link rel="stylesheet" href="./css/gameTools.css">

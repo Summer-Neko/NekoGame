@@ -1,4 +1,5 @@
 let commonItems = []; //这里是常驻
+// let selectUpItems = []; //这里是可自选up表
 
 // 判断是否为歪
 function isOffBanners(record, commonItems) {
@@ -437,4 +438,39 @@ function initRecordTooltips() {
             tooltip.style.opacity = '0';
         };
     });
+}
+
+function applyHiddenPools() {
+  const hidden = getHiddenPools();
+  document.querySelectorAll('.card-pool').forEach(poolEl => {
+    const title = poolEl.querySelector('.card-title')?.textContent?.trim();
+    if (!title) return;
+    poolEl.style.display = hidden.has(title) ? 'none' : '';
+  });
+}
+
+function toDatetimeLocalValue(date) {
+  // date: Date
+  const pad = (n) => String(n).padStart(2, '0');
+  const y = date.getFullYear();
+  const m = pad(date.getMonth() + 1);
+  const d = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+  return `${y}-${m}-${d}T${hh}:${mm}`;
+}
+
+function parseRecordTime(record) {
+
+  const t = record.time || record.gacha_time || record.date || record.timestamp;
+  if (!t) return null;
+  const isoLike = String(t).replace(' ', 'T');
+  const d = new Date(isoLike);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function getRenderedPoolTitles() {
+  return Array.from(document.querySelectorAll('.card-pool .card-title'))
+    .map(el => el.textContent.trim())
+    .filter(Boolean);
 }

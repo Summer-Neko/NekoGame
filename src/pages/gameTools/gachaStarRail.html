@@ -4,8 +4,34 @@
             <div class="selected-display" data-value="">请选择 UID</div>
             <ul class="options-list"></ul>
         </div>
-        <div id="status-display" class="status-display">刷新数据前请确保至少半小时内打开过活动跃迁界面</div>
+        <div id="status-display" class="status-display">刷新数据前请确保至少半小时内打开过跃迁界面</div>
         <button id="refresh-data" class="refresh-button">刷新数据</button>
+        <div class="settings-wrapper">
+          <button id="settings-btn" class="settings-button" title="设置">
+            <span class="settings-icon">⚙</span>
+            <span class="settings-text">设置</span>
+          </button>
+
+          <div id="settings-menu" class="settings-menu hidden">
+            <div class="settings-section-title">导入 & 导出</div>
+            <button class="settings-item" id="exportStarRail">导出数据</button>
+            <button class="settings-item" id="importStarRail">导入数据</button>
+
+            <div class="settings-divider"></div>
+            <div class="settings-section-title">其他设置</div>
+            <div class="settings-hint">
+              一直无法获取抽卡记录？
+            </div>
+            <button class="settings-item" id="menu-clear-url-cache">
+              删除 URL 缓存文件
+            </button>
+            <button class="settings-item" id="menu-hide-pools">隐藏卡池</button>
+            <div class="settings-hint">
+              部分抽卡记录有误?
+            </div>
+            <button class="settings-item" id="menu-delete-by-time">按时间删除抽卡记录</button>
+          </div>
+        </div>
     </div>
     <div class="record-wrapper">
         <div id="record-display" class="record-display">

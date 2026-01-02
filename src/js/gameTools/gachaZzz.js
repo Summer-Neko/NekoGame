@@ -25,6 +25,7 @@ async function loadPlayerUIDs(defaultUid) {
                     await loadPlayerUIDs(lastUid); // 加载玩家 UID 下拉框
                     await loadGachaRecords(lastUid); // 加载对应记录
                     animationMessage(true, `成功删除 UID: ${uid} 的记录`);
+                    applyHiddenPools();
                 } catch (error) {
                     animationMessage(false, `删除失败: ${error.message}`);
                 }
@@ -217,7 +218,6 @@ async function loadGachaRecords(uid) {
             });
         }
     });
-    initScrollLogic(); // 初始化滚动逻辑
 }
 
 function initRecordListTabsZzz(records, poolSection) {
@@ -274,6 +274,8 @@ async function gachaZzzInit() {
     await loadGachaRecords(lastUid); // 加载对应记录
     initScrollLogic(); // 初始化滚动逻辑
     initRecordTooltips();
+    initSettingsMenu();
+    applyHiddenPools();
     // 监听 UID 切换
     document.querySelector('.selected-display').addEventListener('click', async () => {
         const optionsList = document.querySelector('.options-list');
@@ -290,6 +292,7 @@ async function gachaZzzInit() {
             document.querySelector('.options-list').classList.remove('show');
 
             await loadGachaRecords(selectedUid);
+            applyHiddenPools();
         }
     });
 
@@ -305,6 +308,7 @@ async function gachaZzzInit() {
             if (result.success) {
                 const uid = document.querySelector('.selected-display').textContent;
                 await loadGachaRecords(uid); // 刷新后重新加载
+                applyHiddenPools();
             }
         }catch (error) {
             console.error('发生错误:', error); // 捕获并输出异常
@@ -325,6 +329,296 @@ window.electronAPI.on('gacha-records-status', (event, status) => {
         statusElement.textContent = status;
     }
 });
+
+
+function initSettingsMenu() {
+  const btn = document.getElementById('settings-btn');
+  const menu = document.getElementById('settings-menu');
+
+  const openMenu = () => {
+    menu.classList.remove('hidden');
+    // 下一帧再加 show，触发动画
+    requestAnimationFrame(() => menu.classList.add('show'));
+  };
+
+  const closeMenu = () => {
+    menu.classList.remove('show');
+    // 动画结束后隐藏
+    setTimeout(() => menu.classList.add('hidden'), 160);
+  };
+
+  const toggleMenu = () => {
+    const isOpen = menu.classList.contains('show');
+    if (isOpen) closeMenu();
+    else openMenu();
+  };
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleMenu();
+  });
+
+  // 点击菜单内部不关闭
+  menu.addEventListener('click', (e) => e.stopPropagation());
+
+  // 点击页面空白关闭
+  document.addEventListener('click', () => {
+    if (menu.classList.contains('show')) closeMenu();
+  });
+
+  // ESC 关闭
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && menu.classList.contains('show')) closeMenu();
+  });
+
+  // 清除 URL 缓存文件
+  document.getElementById('menu-clear-url-cache').addEventListener('click', async () => {
+    closeMenu();
+    try {
+      const result = await window.electronAPI.invoke('clear-zzz-url-cache');
+      // 兼容你常用返回：{success, message}
+      if (result?.success !== undefined) animationMessage(result.success, result.message);
+      else animationMessage(true, '已清除 URL 缓存文件');
+    } catch (err) {
+      animationMessage(false, `清除失败\n${err.message}`);
+    }
+  });
+
+  // 导出数据
+  document.getElementById('exportZzz').addEventListener('click', async () => {
+      closeMenu();
+      await handleExport('Zzz', 'get-zzz-player-uids', 'export-zzz-data');
+  });
+
+  // 导入数据
+  document.getElementById('importZzz').addEventListener('click', async () => {
+      closeMenu();
+      const refreshButton = document.getElementById('importZzz');
+      refreshButton.disabled = true;
+      refreshButton.innerText = '请等待...';
+      try {
+          const result = await window.electronAPI.invoke('import-zzz-data');
+          animationMessage(result.success, result.message);
+      } catch (error) {
+          console.error('导入数据时发生错误:', error);
+          animationMessage(result.success, `导入失败\n${result.message}`);
+      } finally {
+          refreshButton.disabled = false;
+          refreshButton.innerText = '导入数据';
+      }
+  });
+
+
+  // 隐藏卡池
+  document.getElementById('menu-hide-pools').addEventListener('click', async () => {
+    closeMenu();
+    openHidePoolsModal();
+  });
+  // 按时间删除抽卡数据
+  document.getElementById('menu-delete-by-time').addEventListener('click', () => {
+    closeMenu();
+    openDeleteByTimeModal(); // 新弹窗
+});
+}
+
+/** ===== 隐藏卡池弹窗逻辑 ===== */
+function openHidePoolsModal() {
+  const modal = document.getElementById('hidePoolsModal');
+  const list = document.getElementById('hidePoolsList');
+  const closeBtn = document.getElementById('closeHidePoolsModal');
+  const selectAllBtn = document.getElementById('hidePoolsSelectAll');
+  const confirmBtn = document.getElementById('hidePoolsConfirm');
+
+  const poolOptions = getRenderedPoolTitles();
+
+  // 从 localStorage 读隐藏列表
+  const STORAGE_KEY = 'zzz_hidden_pools';
+  const hiddenPools = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
+
+  // 重置列表
+  list.innerHTML = '';
+  poolOptions.forEach(name => {
+    const item = document.createElement('div');
+    item.className = 'uid-item';
+    item.innerText = name;
+    item.dataset.pool = name;
+    if (hiddenPools.has(name)) item.classList.add('selected');
+
+    item.addEventListener('click', () => {
+      item.classList.toggle('selected');
+      updateSelectAllText();
+    });
+
+    list.appendChild(item);
+  });
+
+  const updateSelectAllText = () => {
+    const items = Array.from(list.querySelectorAll('.uid-item'));
+    const allSelected = items.every(x => x.classList.contains('selected'));
+    if (allSelected) {
+      selectAllBtn.classList.add('primary');
+      selectAllBtn.innerText = '取消全选';
+    } else {
+      selectAllBtn.classList.remove('primary');
+      selectAllBtn.innerText = '全选';
+    }
+  };
+  updateSelectAllText();
+
+  if (typeof openModal === 'function') openModal(modal);
+  else {
+    modal.style.display = 'flex';
+    modal.classList.remove('fade-out');
+  }
+
+  // 关闭
+  const close = () => {
+    if (typeof closeModal === 'function') closeModal(modal);
+    else modal.style.display = 'none';
+  };
+  closeBtn.onclick = close;
+
+  // 全选/取消全选
+  selectAllBtn.onclick = () => {
+    const items = Array.from(list.querySelectorAll('.uid-item'));
+    const allSelected = items.every(x => x.classList.contains('selected'));
+    items.forEach(x => x.classList.toggle('selected', !allSelected));
+    updateSelectAllText();
+  };
+
+  // 应用：保存到 localStorage，并刷新当前展示
+  confirmBtn.onclick = async () => {
+    const selected = Array.from(list.querySelectorAll('.uid-item.selected')).map(x => x.dataset.pool);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(selected));
+    close();
+    // 重新加载当前 UID 的记录，让隐藏生效
+    const uid = document.querySelector('.selected-display')?.textContent;
+    if (uid && uid !== '请先刷新数据') {
+      await loadGachaRecords(uid);
+      applyHiddenPools(); // 见下方
+    }
+    animationMessage(true, '已应用隐藏卡池设置');
+  };
+}
+
+function getHiddenPools() {
+  const STORAGE_KEY = 'zzz_hidden_pools';
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const arr = JSON.parse(raw || '[]');
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    localStorage.removeItem('zzz_hidden_pools');
+    return new Set();
+  }
+}
+
+async function openDeleteByTimeModal() {
+  const modal = document.getElementById('deleteByTimeModal');
+  const closeBtn = document.getElementById('closeDeleteByTimeModal');
+  const cancelBtn = document.getElementById('cancelDeleteByTime');
+  const confirmBtn = document.getElementById('confirmDeleteByTime');
+
+  const uid = document.querySelector('.selected-display')?.textContent?.trim();
+  if (!uid || uid === '请先刷新数据') {
+    animationMessage(false, '请先选择 UID 并刷新数据后再使用该功能');
+    return;
+  }
+
+  // 拉取记录并过滤当前 uid
+  const all = await window.electronAPI.invoke('get-zzz-gacha-records');
+  const records = all.filter(r => r.uid === uid);
+
+  // UI 填充
+  document.getElementById('deleteByTimeUidText').textContent = uid;
+  document.getElementById('deleteByTimeTotalText').textContent = records.length;
+
+  // 计算最早/最晚
+  const times = records.map(parseRecordTime).filter(Boolean).sort((a,b)=>a-b);
+  if (!times.length) {
+    document.getElementById('deleteByTimeRangeText').textContent = '无法解析记录时间（请检查记录的时间字段）';
+  } else {
+    const minT = times[0];
+    const maxT = times[times.length - 1];
+    document.getElementById('deleteByTimeRangeText').textContent =
+      `${minT.toLocaleString()}  ~  ${maxT.toLocaleString()}`;
+
+    // 默认填满范围
+    const startInput = document.getElementById('deleteStartTime');
+    const endInput = document.getElementById('deleteEndTime');
+    startInput.value = toDatetimeLocalValue(minT);
+    endInput.value = toDatetimeLocalValue(maxT);
+
+    // 限制可选范围（防止选到范围外）
+    startInput.min = toDatetimeLocalValue(minT);
+    startInput.max = toDatetimeLocalValue(maxT);
+    endInput.min = toDatetimeLocalValue(minT);
+    endInput.max = toDatetimeLocalValue(maxT);
+  }
+
+  // 打开 modal
+  modal.style.display = 'flex';
+
+  const close = () => (modal.style.display = 'none');
+  closeBtn.onclick = close;
+  cancelBtn.onclick = close;
+
+  confirmBtn.onclick = async () => {
+    const startStr = document.getElementById('deleteStartTime').value;
+    const endStr = document.getElementById('deleteEndTime').value;
+
+    if (!startStr || !endStr) {
+      animationMessage(false, '请选择起始时间与结束时间');
+      return;
+    }
+
+    const start = new Date(startStr);
+    const end = new Date(endStr);
+    start.setSeconds(0, 0);
+    end.setSeconds(59, 999);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      animationMessage(false, '时间格式无效');
+      return;
+    }
+    if (start > end) {
+      animationMessage(false, '起始时间不能晚于结束时间');
+      return;
+    }
+
+    const preview = await window.electronAPI.invoke('count-gacha-records-by-time', {
+      uid,
+      start: start.toISOString(),
+      end: end.toISOString(),
+      table: 'zzz_gacha',
+    });
+
+    const first = confirm(
+      `确定要删除 UID:${uid} 在该时间范围内的抽卡记录吗？\n` +
+      `${start.toLocaleString()} ~ ${end.toLocaleString()}\n` +
+      `预计删除：${preview.count} 条`
+    );
+    if (!first) return;
+    const second = confirm('再次确认：此操作不可撤销，仍要继续删除吗？');
+    if (!second) return;
+
+    try {
+        const res = await window.electronAPI.invoke('delete-gacha-records-by-time', {
+          uid,
+          start: start.toISOString(),
+          end: end.toISOString(),
+          table: 'zzz_gacha',
+        });
+
+        animationMessage(res.success, res.message);
+        if (res.success) {
+          await loadGachaRecords(uid);
+          applyHiddenPools();
+        }
+    } catch (err) {
+      animationMessage(false, `删除失败: ${err.message}`);
+    }
+  };
+}
 
 // 暴露初始化函数
 window.gachaZzzInit = gachaZzzInit;

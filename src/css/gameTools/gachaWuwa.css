@@ -14,7 +14,7 @@
     position: relative; /* 确保按钮的相对定位生效 */
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 #uid-input {
@@ -65,7 +65,7 @@
 .record-wrapper {
     overflow: hidden;
     position: relative;
-    height: calc(100% - 50px); /* 修正为顶部区域的实际高度 */
+    height: calc(100% - 40px); /* 修正为顶部区域的实际高度 */
     display: flex;
     flex-direction: column; /* 确保布局按列显示 */
 }
@@ -91,7 +91,7 @@
     margin-bottom: 12px;
     overflow: hidden;
     background: rgba(62, 62, 62, 0.42);
-    padding: 10px;
+    padding: 8px;
     color: #fff;
     border-radius: 8px;
     display: flex;
@@ -117,14 +117,6 @@
 }
 
 
-.card-header {
-    font-size: 18px;
-    margin-bottom: 8px;
-    text-align: center;
-    font-weight: bold;
-    border-bottom: 2px solid #444;
-    padding-bottom: 5px;
-}
 
 .record-item {
     padding: 5px 0;
@@ -162,10 +154,13 @@
 .card-header {
     display: flex;
     justify-content: space-between;
-    font-size: 18px;
-    margin-bottom: 10px;
+    margin-bottom: 4px;
     border-bottom: 2px solid #444;
-    padding-bottom: 5px;
+    font-size: 15px;
+    text-align: center;
+    font-weight: bold;
+    border-bottom: 2px solid #444;
+    padding-bottom: 4px;
 }
 
 .total-draws {
@@ -176,12 +171,12 @@
 .record-tabs {
     display: flex;
     justify-content: center;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
 }
 
 .record-tab {
     flex: 1;
-    padding: 10px;
+    padding: 7px;
     text-align: center;
     background: rgba(51,51,51,0.5);
     color: #fff;
@@ -222,7 +217,7 @@
 }
 
 .tab-content {
-    min-height: 212px;
+    min-height: 200px;
     padding: 5px;
 }
 
@@ -291,7 +286,6 @@
 .record-list-tabs {
     display: flex;
     justify-content: center;
-    margin-bottom: 10px;
     background: rgba(51,51,51,0.5);
     padding: 5px;
     border-radius: 4px;
@@ -359,7 +353,7 @@
     display: grid;
     grid-template-columns: repeat(4, 1fr); /* 四列布局 */
     gap: 10px;
-    margin-bottom: 15px;
+    margin-bottom: 4px;
 }
 
 .stats-card {
@@ -606,7 +600,7 @@
 }
 
 .selected-display {
-    padding: 8px;
+    padding: 6px;
     border: 1px solid rgba(128, 128, 128, 0.5);
     background-color: rgba(60, 60, 60, 0.6);
     color: #ffffff;
@@ -646,9 +640,10 @@
 }
 
 .dropdown-option {
-    padding: 10px;
+    padding: 8px;
     transition: all 0.2s ease;
     cursor: pointer;
+    align-items: center;
     color: #ffffff;
     background-color: rgba(70, 70, 70, 0.69);
     border-bottom: 1px solid rgba(80, 80, 80, 0.59);
@@ -678,7 +673,7 @@
     background-color: rgba(253, 109, 102, 0.51);
     border: none;
     border-radius: 3px;
-    font-size: 12px;
+    font-size: 10px;
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.2s ease;
 }

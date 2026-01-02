@@ -53,7 +53,7 @@ async function fetchZzzGachaData(event) {
     // 获取祈愿日志数据
     try {
         const allRecords = { '2001': [], '3001': [], '1001': [], '5001': [] };
-        let totalFetched = await fetchGachaRecords(allRecords,GACHA_TYPE_MAP,gachaUrl,event);
+        let totalFetched = await fetchZzzGachaRecords(allRecords,GACHA_TYPE_MAP,gachaUrl,event);
         // 插入查询到的所有数据
         const totalInserted = await insertGachaLogs(allRecords['2001'].concat(allRecords['3001'], allRecords['1001'], allRecords['5001']));
         event.sender.send('gacha-records-status', `查询到的抽卡记录: ${totalFetched} 条,成功插入: ${totalInserted} 条`);
@@ -63,6 +63,95 @@ async function fetchZzzGachaData(event) {
         event.sender.send('gacha-records-status', `获取抽卡数据时出错:${error}`);
         return { success: false, message: `获取抽卡数据时出错\n${error}`};
     }
+}
+
+async function fetchZzzGachaRecords(allRecords, GACHA_TYPE_MAP, gachaUrl, event) {
+    const REQUEST_SIZE = 20;
+    const MAX_EMPTY_PAGE = 2;  // 连续空页保护
+    const parsedUrl = new URL(gachaUrl);
+
+    let totalFetched = 0;
+
+    for (const [gachaType, gachaName] of Object.entries(GACHA_TYPE_MAP)) {
+        console.log(`正在获取 ${gachaName} 的祈愿记录...`);
+        event.sender.send('gacha-records-status', `正在获取 ${gachaName} 的祈愿记录...`);
+        let page = 1;
+        let endId = '0';
+        let emptyPageCount = 0;
+
+        while (true) {
+            try {
+                const queryParams = new URLSearchParams(parsedUrl.search);
+                queryParams.set('gacha_type', gachaType);
+                queryParams.set('page', page.toString());   // page 只是占位
+                queryParams.set('size', REQUEST_SIZE.toString());
+                queryParams.set('end_id', endId);
+
+                const urlWithParams =
+                    `${parsedUrl.origin}${parsedUrl.pathname}?${queryParams.toString()}`;
+
+                console.log(`获取 ${gachaName} 第 ${page} 页数据...`);
+                event.sender.send(
+                    'gacha-records-status',
+                    `获取 ${gachaName} 第 ${page} 页数据...`
+                );
+                const response = await get(urlWithParams);
+                const data = response.data;
+
+                console.log('回应数据', JSON.stringify(data));
+
+                // === 基本合法性检查 ===
+                if (
+                    data.retcode !== 0 ||
+                    !data.data ||
+                    !Array.isArray(data.data.list)
+                ) {
+                    console.warn(`获取 ${gachaName} 第 ${page} 页返回异常，停止该池`);
+                    break;
+                }
+
+                const list = data.data.list;
+
+                // === 空页处理 ===
+                if (list.length === 0) {
+                    emptyPageCount++;
+                    if (emptyPageCount >= MAX_EMPTY_PAGE) {
+                        console.log(`${gachaName} 连续空页，停止`);
+                        break;
+                    }
+                    await sleep(300);
+                    page++;
+                    continue;
+                }
+
+                emptyPageCount = 0;
+
+                // === 保存数据 ===
+                allRecords[gachaType].push(...list);
+                totalFetched += list.length;
+
+                const lastId = list[list.length - 1].id;
+
+                // === end_id 防死循环 ===
+                if (!lastId || lastId === endId) {
+                    console.warn(`${gachaName} end_id 未变化，停止翻页`);
+                    break;
+                }
+                endId = lastId;
+                page++;
+                await sleep(300);
+            } catch (err) {
+                console.error(`请求 ${gachaName} 第 ${page} 页失败:`, err);
+                break;
+            }
+        }
+    }
+
+    return totalFetched;
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 module.exports = { fetchZzzGachaData }

@@ -1,4 +1,4 @@
-const { ipcMain, clipboard } = require('electron');
+const { ipcMain, clipboard, shell} = require('electron');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -105,5 +105,59 @@ function getStarRailLink() {
     clipboard.writeText(gachaUrl);
     return { success: true, message: `星铁抽卡链接获取成功，已复制到剪贴板。\n${gachaUrl}` };
 }
+
+function getStarRailCacheFilePath() {
+  const gamePath = getGameInstallPath();
+  if (!gamePath) {
+    return { success: false, message: '未找到崩铁日志文件，请确认游戏是否启动过。' };
+  }
+
+  const cacheFilePath = getLatestCachePath(gamePath);
+  if (!cacheFilePath) {
+    return { success: false, message: '未找到 webCaches 缓存目录，请确保游戏至少启动过一次。' };
+  }
+
+  return { success: true, gamePath, cacheFilePath };
+}
+
+/**
+ * 打开缓存文件所在目录并高亮 data_2
+ */
+ipcMain.handle('clear-starRail-url-cache', async () => {
+  try {
+    const info = getStarRailCacheFilePath();
+    if (!info.success) return info;
+
+    const { cacheFilePath } = info;
+
+    if (fs.existsSync(cacheFilePath)) {
+      shell.showItemInFolder(cacheFilePath);
+      return {
+        success: true,
+        message: `已打开缓存文件位置：\n${cacheFilePath}`,
+        path: cacheFilePath,
+      };
+    }
+
+    // data_2 不存在：打开它所在目录
+    const dir = path.dirname(cacheFilePath);
+    if (fs.existsSync(dir)) {
+      await shell.openPath(dir);
+      return {
+        success: false,
+        message: `未找到缓存文件 data_2，但已打开目录：\n${dir}\n请确认游戏已启动并打开过抽卡历史页面。`,
+        path: dir,
+      };
+    }
+
+    return {
+      success: false,
+      message: `未找到缓存目录：\n${dir}\n请确认游戏已启动过。`,
+    };
+  } catch (error) {
+    console.error('[clear-starRail-url-cache] error:', error);
+    return { success: false, message: `操作失败: ${error.message}` };
+  }
+});
 
 module.exports = { getStarRailLink };
