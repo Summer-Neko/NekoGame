@@ -75,8 +75,8 @@ async function loadGachaRecords(uid) {
 
     const pools = categorizeRecords(filteredRecords);
     const GACHA_TYPE_ORDER = [
-        "独家频段", "音擎频段", "常驻频段",
-        "邦布频段"
+        "独家频段", "音擎频段","独家重映","音擎回响",
+        "常驻频段", "邦布频段"
     ];
 
     console.log("1")
@@ -118,7 +118,7 @@ async function loadGachaRecords(uid) {
     };
     const generateRatingCards = (records, poolType) => {
         const fiveStarAvg = calculateDrawsBetweenZzz(records, 4);
-        const isCharacterOrConeEvent = poolType === "独家频段" || poolType === "音擎频段";
+        const isCharacterOrConeEvent = poolType === "独家频段" || poolType === "音擎频段" || poolType ==="独家重映" || poolType ==="音擎回响";
         const noDeviationRate = isCharacterOrConeEvent ? calculateNoDeviationRateZzz(records) : null;
         const avgUp = isCharacterOrConeEvent ? calculateUpAverageZzz(pools[poolType]) : null;
         const avgUpText = typeof avgUp === "number" ? `${avgUp.toFixed(2)}` : avgUp;
@@ -163,7 +163,7 @@ async function loadGachaRecords(uid) {
 
             const totalDraws = pools[poolType].length;
             const avgFiveStar = calculateDrawsBetweenZzz(pools[poolType], 4);
-            const avgUp = (poolType === "独家频段" || poolType ==="音擎频段") ? calculateUpAverageZzz(pools[poolType]) : null;
+            const avgUp = (poolType === "独家频段" || poolType ==="音擎频段" || poolType ==="独家重映" || poolType ==="音擎回响") ? calculateUpAverageZzz(pools[poolType]) : null;
 
             const avgFiveStarText = typeof avgFiveStar === "number" ? `${avgFiveStar.toFixed(2)}` : avgFiveStar;
             const avgUpText = typeof avgUp === "number" ? `${avgUp.toFixed(2)}` : avgUp;

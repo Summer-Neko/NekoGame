@@ -62,6 +62,8 @@ ipcMain.handle('get-zzz-gacha-records', async () => {
         const gachaTypeMap = {
             "2": "独家频段",
             "3": "音擎频段",
+            "102": "独家重映",
+            "103": "音擎回响",
             "1": "常驻频段",
             "5": "邦布频段",
         };

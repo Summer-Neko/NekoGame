@@ -1,6 +1,7 @@
 // 判断是否为歪
 function isOffBannersZzz(record, commonItems) {
-    return (record.card_pool_type === "独家频段" || record.card_pool_type === "音擎频段" )
+    return (record.card_pool_type === "独家频段" || record.card_pool_type === "音擎频段"
+        || record.card_pool_type ==="独家重映" || record.card_pool_type ==="音擎回响" )
         && commonItems.includes(record.name);
 }
 

@@ -8,6 +8,8 @@ const {getZZZUrl} = require("./getZZZUrl");
 const GACHA_TYPE_MAP = {
     "2001": "独家频段",
     "3001": "音擎频段",
+    "12001": "独家重映",
+    "13001": "音擎回响",
     "1001": "常驻频段",
     "5001": "邦布频段"
 };
@@ -52,10 +54,10 @@ async function fetchZzzGachaData(event) {
     global.Notify(true, `已获取抽卡记录并复制到剪贴板\n${gachaUrl}`);
     // 获取祈愿日志数据
     try {
-        const allRecords = { '2001': [], '3001': [], '1001': [], '5001': [] };
+        const allRecords = { '2001': [], '3001': [],'12001': [] ,'13001': [] , '1001': [], '5001': [] };
         let totalFetched = await fetchZzzGachaRecords(allRecords,GACHA_TYPE_MAP,gachaUrl,event);
         // 插入查询到的所有数据
-        const totalInserted = await insertGachaLogs(allRecords['2001'].concat(allRecords['3001'], allRecords['1001'], allRecords['5001']));
+        const totalInserted = await insertGachaLogs(allRecords['2001'].concat(allRecords['3001'],allRecords['12001'],allRecords['13001'], allRecords['1001'], allRecords['5001']));
         event.sender.send('gacha-records-status', `查询到的抽卡记录: ${totalFetched} 条,成功插入: ${totalInserted} 条`);
         return { success: true, message: `查询到的抽卡记录: ${totalFetched} 条\n成功插入: ${totalInserted} 条`};
     } catch (error) {
