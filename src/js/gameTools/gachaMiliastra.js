@@ -395,6 +395,12 @@ function initSettingsMenu() {
     }
   })
 
+  // 导出数据
+  document.getElementById('exportMiliastra').addEventListener('click', async () => {
+      closeMenu();
+      await handleExport('Miliastra', 'get-miliastra-player-uids', 'export-miliastra-data');
+  });
+
   // 隐藏卡池
   document.getElementById('menu-hide-pools').addEventListener('click', async () => {
     closeMenu();

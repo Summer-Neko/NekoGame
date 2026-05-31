@@ -64,7 +64,7 @@ async function exportUIGFData({ tableName, type, outputFileName, schema, gameTyp
             info: {
                 export_timestamp: Math.floor(Date.now() / 1000),
                 export_app: "NekoGame",
-                export_app_version: "2.3.12",
+                export_app_version: "2.3.17",
                 version: "v4.0"
             },
             [type]: []
@@ -109,6 +109,16 @@ ipcMain.handle('export-genshin-data', async (event, selectedUIDs) => {
     });
 });
 
+ipcMain.handle('export-miliastra-data', async (event, selectedUIDs) => {
+    await exportUIGFData({
+        tableName: 'miliastra_gacha',
+        type: 'hk4e',
+        outputFileName: `UIGF4_miliastra_gacha_${selectedUIDs.join('_')}_NekoGame.json`,
+        schema: fieldSchemas.hk4e,
+        gameType: 'genshin',
+        selectedUIDs
+    });
+});
 
 ipcMain.handle('export-starRail-data', async (event, selectedUIDs) => {
     await exportUIGFData({
