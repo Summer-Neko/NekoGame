@@ -59,14 +59,31 @@ function renderPieChartMiliastra(records, poolType, config) {
     };
 
     // 底部文字提示 HTML 也动态生成
+const qualityMap = {
+        "五星": 5,
+        "四星": 4,
+        "三星": 3,
+        "二星": 2
+    };
+
     const keys = Object.keys(starCounts);
+    // 动态生成 span 标签
+    const spansHtml = keys.map((key, index) => {
+        const qualityLevel = qualityMap[key];
+        const color = getColorByQualityMiliastra(qualityLevel);
+
+        return `<span style="color: ${color}; cursor: pointer; font-weight: bold;" data-index="${index}">${starCounts[key]}</span>`;
+    }).join(' <span style="color: #666;">|</span> ');
+
+    // 抽卡时间范围的容错处理
+    const firstRecord = records[0]?.timestamp.split(' ')[0] || "未知";
+    const lastRecord = records[records.length - 1]?.timestamp.split(' ')[0] || "未知";
+
     const starInfoHtml = `
         <div class="star-info">
-            <span class="star-five" data-index="0">${starCounts[keys[0]]}</span> |
-            <span class="star-four" data-index="1">${starCounts[keys[1]]}</span> |
-            <span class="star-three" data-index="2">${starCounts[keys[2]]}</span>
+            ${spansHtml}
         </div>
-        <div class="date-range">${records[records.length - 1]?.timestamp.split(' ')[0]} - ${records[0]?.timestamp.split(' ')[0]}</div>
+        <div class="date-range">${lastRecord} - ${firstRecord}</div>
     `;
     // 插入到饼状图下方
     canvas.insertAdjacentHTML('afterend', starInfoHtml);
