@@ -1,10 +1,3 @@
-// 判断是否为歪
-function isOffBannersZzz(record, commonItems) {
-    return (record.card_pool_type === "独家频段" || record.card_pool_type === "音擎频段"
-        || record.card_pool_type ==="独家重映" || record.card_pool_type ==="音擎回响" )
-        && commonItems.includes(record.name);
-}
-
 function calculateMostDrawsZzz(records, quality) {
     const qualityRecords = records.filter(r => r.quality_level === quality);
     if (qualityRecords.length === 0) return "暂未抽出S";
@@ -42,7 +35,7 @@ function calculateDrawsBetweenZzz(records, quality) {
 function calculateUpAverageZzz(records) {
     const upRecords = records.filter(
         r => r.quality_level === 4
-        && !commonItems.includes(r.name)
+         && !isCommonItem(r.name, r.timestamp || r.time, commonItems)
         && (r.card_pool_type === "独家频段" || r.card_pool_type === "音擎频段")
     );
     if (upRecords.length === 0) return "还没抽出UP";
@@ -113,7 +106,7 @@ function generateOverviewZzz(records) {
         const draws = nextIndex - records.indexOf(record);
         const color = getDrawColorZzz(draws, record.quality_level); // 获取颜色
         // 判断是否为“歪”
-        const isOffBanner = isOffBannersZzz(record, commonItems);
+        const isOffBanner = isOffBanners(record, commonItems);
         return `
             <div class="record"
                 data-name="${record.name}"
@@ -162,7 +155,7 @@ function generateDetailsZzz(records) {
                         const color = getDrawColorZzz(draws, record.quality_level); // 获取颜色
 
                         // 判断是否为“歪”
-                        const isOffBanner = isOffBannersZzz(record, commonItems);
+                        const isOffBanner = isOffBanners(record, commonItems);
 
                         return `
                             <div class="record"

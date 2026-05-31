@@ -18,15 +18,34 @@ function initializeTrackedGames() {
             console.error("Error fetching games from database:", err);
             return;
         }
+        // 记录本次从数据库读到的所有有效进程名
+        const validProcessNames = new Set();
+
         rows.forEach(row => {
-            // 使用进程名（仅文件名部分）作为 key
             const processName = row.path.split('\\').pop(); // 只保留 `game.exe`
-            trackedGames[processName] = {
-                id: row.id,
-                isRunning: false,
-                sessionId: null,
-                totalTime: row.total_time // 初始化总时长
-            };
+            validProcessNames.add(processName);
+
+            // 如果该进程已经在追踪列表中，只更新基础信息，不覆盖正在运行的 session
+            if (trackedGames[processName]) {
+                trackedGames[processName].id = row.id;
+
+                if (!trackedGames[processName].isRunning) {
+                    trackedGames[processName].totalTime = row.total_time;
+                }
+            } else {
+
+                trackedGames[processName] = {
+                    id: row.id,
+                    isRunning: false,
+                    sessionId: null,
+                    totalTime: row.total_time
+                };
+            }
+        });
+        Object.keys(trackedGames).forEach(oldProcessName => {
+            if (!validProcessNames.has(oldProcessName)) {
+                delete trackedGames[oldProcessName];
+            }
         });
     });
 }

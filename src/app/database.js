@@ -176,30 +176,51 @@ function initializeDatabase() {
             );
         `, (err) => {
             if (err) {
-                console.error("Failed to initialize starRail_gacha table:", err.message);
+                console.error("Failed to initialize genshin_gacha table:", err.message);
             } else {
-                console.log("starRail_gacha table initialized successfully.");
+                console.log("genshin_gacha table initialized successfully.");
             }
         });
-               db2.run(`
-                CREATE TABLE IF NOT EXISTS zzz_gacha (
-                    id TEXT PRIMARY KEY,
-                    uid TEXT NOT NULL,
-                    gacha_id TEXT,
-                    gacha_type TEXT NOT NULL,
-                    item_id TEXT,
-                    count INTEGER,
-                    time TEXT NOT NULL,
-                    name TEXT,
-                    lang TEXT,
-                    item_type TEXT,
-                    rank_type INTEGER
-                );
+        db2.run(`
+            CREATE TABLE IF NOT EXISTS zzz_gacha (
+                id TEXT PRIMARY KEY,
+                uid TEXT NOT NULL,
+                gacha_id TEXT,
+                gacha_type TEXT NOT NULL,
+                item_id TEXT,
+                count INTEGER,
+                time TEXT NOT NULL,
+                name TEXT,
+                lang TEXT,
+                item_type TEXT,
+                rank_type INTEGER
+            );
         `, (err) => {
             if (err) {
-                console.error("Failed to initialize starRail_gacha table:", err.message);
+                console.error("Failed to initialize zzz_gacha table:", err.message);
             } else {
-                console.log("starRail_gacha table initialized successfully.");
+                console.log("zzz_gacha table initialized successfully.");
+            }
+        });
+        db2.run(`
+            CREATE TABLE IF NOT EXISTS miliastra_gacha (
+                id TEXT PRIMARY KEY,
+                uid TEXT NOT NULL,
+                gacha_id TEXT,
+                gacha_type TEXT NOT NULL,
+                item_id TEXT,
+                count INTEGER,
+                time TEXT NOT NULL,
+                name TEXT,
+                lang TEXT,
+                item_type TEXT,
+                rank_type INTEGER
+            );
+        `, (err) => {
+            if (err) {
+                console.error("Failed to initialize miliastra_gacha table:", err.message);
+            } else {
+                console.log("miliastra_gacha table initialized successfully.");
             }
         });
     });

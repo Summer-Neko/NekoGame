@@ -1,6 +1,6 @@
 // 加载玩家 UID 下拉列表
 async function loadPlayerUIDs(defaultUid) {
-    const players = await window.electronAPI.getPlayerUIDs(); // 从数据库获取所有 UID
+    const players = await window.electronAPI.invoke('get-miliastra-player-uids'); // 从数据库获取所有 UID
     const uidDropdown = document.getElementById('uid-dropdown');
     const selectedDisplay = document.querySelector('.selected-display');
     const optionsList = document.querySelector('.options-list');
@@ -20,8 +20,8 @@ async function loadPlayerUIDs(defaultUid) {
             const confirmed = confirm(`确定要删除 UID: ${uid} 的所有记录吗？`);
             if (confirmed) {
                 try {
-                    await window.electronAPI.invoke('delete-gacha-records', uid, 'gacha_logs');
-                    const lastUid = await window.electronAPI.getLastQueryUid();
+                    await window.electronAPI.invoke('delete-gacha-records', uid, 'miliastra_gacha');
+                    const lastUid = await window.electronAPI.invoke('get-last-miliastra-uid');
                     await loadPlayerUIDs(lastUid); // 加载玩家 UID 下拉框
                     await loadGachaRecords(lastUid); // 加载对应记录
                     animationMessage(true, `成功删除 UID: ${uid} 的记录`);
@@ -52,32 +52,31 @@ async function loadPlayerUIDs(defaultUid) {
 
 // 加载祈愿记录
 async function loadGachaRecords(uid) {
-    const records = await window.electronAPI.getGachaRecords();
+    const records = await window.electronAPI.invoke('get-miliastra-gacha-records');
     const container = document.getElementById('record-display');
     if (!container) {
         console.error('Error: Element with ID "record-display" not found.');
         return;
     }
-    container.innerHTML = ''; // 清空显示内容
+    // 清空内容
+    container.innerHTML = '';
     console.log('Container cleared:', container.innerHTML);
-
-    const filteredRecords = records.filter(r => r.player_id === uid);
+    // console.log(records);
+    const filteredRecords = records.filter(r => r.uid === uid);
     if (!filteredRecords.length) {
-        container.innerHTML = '<p>没有唤取记录。请先打开游戏祈愿界面，然后点击刷新数据</p>';
+        container.innerHTML = '<p>没有祈愿记录。请先打开游戏祈愿界面，然后点击刷新数据</p>';
         return;
     }
 
     // 取得第一条记录的 lang 属性，若不存在则默认使用 'zh-cn'
     const lang = filteredRecords[0].lang || 'zh-cn';
-    // 根据 lang 从后端获取对应的 commonItems
-    commonItems = await window.electronAPI.invoke('get-common-items','wuWa', lang);
+    commonItems = []
 
     const pools = categorizeRecords(filteredRecords);
     const GACHA_TYPE_ORDER = [
-        "角色活动唤取", "武器活动唤取", "角色常驻唤取",
-        "武器常驻唤取", "新手唤取", "新手自选唤取",
-        "感恩定向唤取"
+        "常驻颂愿", "活动颂愿"
     ];
+
     console.log("1")
     const safeValue = (value, fallback = "无数据") => (value === null || value === undefined ? fallback : value);
 
@@ -117,14 +116,14 @@ async function loadGachaRecords(uid) {
     };
     const generateRatingCards = (records, poolType) => {
         const fiveStarAvg = calculateDrawsBetween(records, 5);
-        const isCharacterEvent = poolType === "角色活动唤取";
-        const noDeviationRate = isCharacterEvent ? calculateNoDeviationRate(records) : null;
-        const avgUp = poolType === "角色活动唤取" ? calculateUpAverage(pools[poolType]) : null;
+        const isCharacterOrConeEvent = poolType === "角色活动祈愿" || poolType === "武器活动祈愿"; // 判断角色活动跃迁或光锥活动跃迁
+        const noDeviationRate = isCharacterOrConeEvent ? calculateNoDeviationRate(records) : null;
+        const avgUp = isCharacterOrConeEvent ? calculateUpAverage(pools[poolType]) : null; // 修改这里，两个池子都能计算
         const avgUpText = typeof avgUp === "number" ? `${avgUp.toFixed(2)}` : avgUp;
-        const careerRating = getRating(fiveStarAvg, avgUpText);
+        const careerRating = getRatingMiliastra(fiveStarAvg, avgUpText);
         const chartId = `star-pie-chart-${poolType}`; // 动态生成唯一 ID
 
-        const ratingDetails = isCharacterEvent
+        const ratingDetails = isCharacterOrConeEvent
             ? `
                 <div class="rating-detail">
                     <h3>生涯评级</h3>
@@ -154,32 +153,67 @@ async function loadGachaRecords(uid) {
         `;
     };
 
-    GACHA_TYPE_ORDER.forEach(poolType => {
+    const poolConfigs = {
+        "活动颂愿": { high: 5, mid: 4, highPity: 70, midPity: 10, highName: "5星", midName: "4星" },
+        "常驻颂愿": { high: 4, mid: 3, highPity: 70, midPity: 5,  highName: "4星", midName: "3星" }
+    };
+
+GACHA_TYPE_ORDER.forEach(poolType => {
         console.log("2")
         if (pools[poolType]) {
             const poolSection = document.createElement('div');
             poolSection.className = 'card-pool';
 
+            // 【新增】获取当前卡池的配置
+            const config = poolConfigs[poolType];
             const totalDraws = pools[poolType].length;
-            const avgFiveStar = calculateDrawsBetween(pools[poolType], 5);
-            const avgUp = poolType === "角色活动唤取" ? calculateUpAverage(pools[poolType]) : null;
 
-            const avgFiveStarText = typeof avgFiveStar === "number" ? `${avgFiveStar.toFixed(2)}` : avgFiveStar;
+            // 动态计算最高星级的平均抽数
+            const avgHighStar = calculateDrawsBetween(pools[poolType], config.high);
+            const avgUp = poolType === "活动颂愿" ? calculateUpAverage(pools[poolType]) : null;
+
+            const avgHighStarText = typeof avgHighStar === "number" ? `${avgHighStar.toFixed(2)}` : avgHighStar;
             const avgUpText = typeof avgUp === "number" ? `${avgUp.toFixed(2)}` : avgUp;
 
-            const lastFiveStarDraws = calculateLastDraws(pools[poolType], 5);
-            const lastFourStarDraws = calculateLastDraws(pools[poolType], 4);
+            // 动态计算距离上个最高星、次高星的抽数
+            const lastHighStarDraws = calculateLastDraws(pools[poolType], config.high);
+            const lastMidStarDraws = calculateLastDraws(pools[poolType], config.mid);
 
-            // "最非" 和 "最欧"
-            const { maxDraws: mostDraws, minDraws: leastDraws } = calculateMostDraws(pools[poolType], 5);
-            const mostDrawsText = safeValue(mostDraws, "暂未抽出五星");
-            const leastDrawsText = safeValue(leastDraws, "暂未抽出五星");
+            // "最非" 和 "最欧" 也是查最高星级
+            const { maxDraws: mostDraws, minDraws: leastDraws } = calculateMostDraws(pools[poolType], config.high);
+            const mostDrawsText = safeValue(mostDraws, `暂未抽出${config.highName}`);
+            const leastDrawsText = safeValue(leastDraws, `暂未抽出${config.highName}`);
 
+            // 动态传入保底抽数和文案
             const progressBars = `
-                ${generateProgressBar(lastFiveStarDraws, 80, 'rgba(243, 213, 138,0.7)', '距离上个五星')}
-                ${generateProgressBar(lastFourStarDraws, 10, 'rgba(214, 199, 255,0.7)', '距离上个四星')}
+                ${generateProgressBar(lastHighStarDraws, config.highPity, 'rgba(243, 213, 138,0.7)', `距离上个${config.highName}`)}
+                ${generateProgressBar(lastMidStarDraws, config.midPity, 'rgba(214, 199, 255,0.7)', `距离上个${config.midName}`)}
             `;
+
+            // 统计面板标题也跟着变
+            const dynamicStatsCards = `
+                <div class="stats-container">
+                    <div class="stats-card">
+                        <div class="stats-title">平均${config.highName}</div>
+                        <div class="stats-value">${safeValue(avgHighStarText)}</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-title">平均UP</div>
+                        <div class="stats-value">${safeValue(avgUpText)}</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-title">最非</div>
+                        <div class="stats-value">${safeValue(mostDrawsText)}</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-title">最欧</div>
+                        <div class="stats-value">${safeValue(leastDrawsText)}</div>
+                    </div>
+                </div>
+            `;
+
             const ratingContent = generateRatingCards(pools[poolType], poolType)
+
             poolSection.innerHTML = `
                 <div class="card-header">
                     <span class="card-title">${poolType}</span>
@@ -192,7 +226,7 @@ async function loadGachaRecords(uid) {
                 <div class="tab-content">
                     <div id="stats" class="tab-panel active">
                         ${progressBars}
-                        ${generateStatsCards(avgFiveStarText, avgUpText, mostDrawsText, leastDrawsText)}
+                        ${dynamicStatsCards}
                     </div>
                     <div id="rating" class="tab-panel">
                         ${ratingContent}
@@ -203,22 +237,19 @@ async function loadGachaRecords(uid) {
                     <button class="record-tab" data-tab="details">详细</button>
                 </div>
                 <div class="record-list">
-                    ${generateOverview(pools[poolType])}
+                    ${generateOverviewMiliastra(pools[poolType], config)}
                 </div>
             `;
             console.log("3");
             container.appendChild(poolSection);
-            // 初始化标签和记录切换逻辑
+
             initTabs();
-            initRecordListTabs(pools[poolType], poolSection);
-            renderPieChart(pools[poolType], poolType);
-            charts[poolType].update({
-                duration: 0, // 禁用动画
-            });
+            initRecordListTabsMiliastra(pools[poolType], poolSection, config);
+            renderPieChartMiliastra(pools[poolType], poolType, config);
+            charts[poolType].update({ duration: 0 });
         }
     });
 }
-
 
 // 添加滚动逻辑
 function initScrollLogic() {
@@ -247,8 +278,8 @@ function initScrollLogic() {
 
 
 // 监听 UID 切换
-async function gachaWuwaInit() {
-    const lastUid = await window.electronAPI.getLastQueryUid();
+async function gachaMiliastraInit() {
+    const lastUid = await window.electronAPI.invoke('get-last-miliastra-uid');
     await loadPlayerUIDs(lastUid); // 加载玩家 UID 下拉框
     await loadGachaRecords(lastUid); // 加载对应记录
     initScrollLogic(); // 初始化滚动逻辑
@@ -266,14 +297,11 @@ async function gachaWuwaInit() {
         if (event.target && event.target.classList.contains('dropdown-option')) {
             const selectedUid = event.target.dataset.value;
 
-            // 更新下拉显示
             document.querySelector('.selected-display').textContent = selectedUid;
             document.querySelector('.selected-display').dataset.value = selectedUid;
 
-            // 收起下拉列表
             document.querySelector('.options-list').classList.remove('show');
 
-            // 加载对应的抽卡记录
             await loadGachaRecords(selectedUid);
             applyHiddenPools();
         }
@@ -282,29 +310,27 @@ async function gachaWuwaInit() {
     // 刷新数据
     document.getElementById('refresh-data').addEventListener('click', async () => {
         const refreshButton = document.getElementById('refresh-data');
-        // 禁用按钮，防止重复点击
         refreshButton.disabled = true;
         refreshButton.innerText = '请等待...';
         try {
-            const result = await window.electronAPI.refreshGachaRecords();
+            // 禁用按钮，防止重复点击
+            const result = await window.electronAPI.invoke('fetchMiliastraGachaData');
+            animationMessage(result.success, result.message);
             if (result.success) {
-                const uid = document.querySelector('.selected-display').textContent;
-                await loadGachaRecords(uid); // 刷新后重新加载
+                const lastUid = await window.electronAPI.invoke('get-last-miliastra-uid');
+                await loadPlayerUIDs(lastUid);
+                await loadGachaRecords(lastUid);
                 applyHiddenPools();
-            } else {
-                console.error(result.error);
             }
-        } catch (error) {
-            console.error('发生错误:', error);
+        }catch (error) {
+            console.error('发生错误:', error); // 捕获并输出异常
         } finally {
-            // 无论请求是否成功，启用按钮
-            refreshButton.disabled = false;
             refreshButton.innerText = '刷新数据';
+            refreshButton.disabled = false;
         }
     });
 }
 
-// 如果 charts 已存在，则不会重新定义
 if (typeof charts === "undefined") {
     var charts = {};
 }
@@ -360,20 +386,14 @@ function initSettingsMenu() {
   document.getElementById('menu-clear-url-cache').addEventListener('click', async () => {
     closeMenu();
     try {
-      const result = await window.electronAPI.invoke('clear-wuwa-url-cache');
-      // 兼容你常用返回：{success, message}
+      const result = await window.electronAPI.invoke('clear-genshin-url-cache');
+      // 兼容常用返回：{success, message}
       if (result?.success !== undefined) animationMessage(result.success, result.message);
       else animationMessage(true, '已清除 URL 缓存文件');
     } catch (err) {
       animationMessage(false, `清除失败\n${err.message}`);
     }
-  });
-
-  // 导出数据
-  document.getElementById('exportWuWa').addEventListener('click', async () => {
-      let result = await window.electronAPI.invoke('exportGachaData');
-      animationMessage(result.success, result.message);
-  });
+  })
 
   // 隐藏卡池
   document.getElementById('menu-hide-pools').addEventListener('click', async () => {
@@ -395,10 +415,11 @@ function openHidePoolsModal() {
   const selectAllBtn = document.getElementById('hidePoolsSelectAll');
   const confirmBtn = document.getElementById('hidePoolsConfirm');
 
+  // 你页面里的卡池顺序就是这样生成的
   const poolOptions = getRenderedPoolTitles();
 
   // 从 localStorage 读隐藏列表
-  const STORAGE_KEY = 'wuwa_hidden_pools';
+  const STORAGE_KEY = 'miliastra_hidden_pools';
   const hiddenPools = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
 
   // 重置列表
@@ -431,6 +452,8 @@ function openHidePoolsModal() {
   };
   updateSelectAllText();
 
+  // 打开弹窗：你项目里 gameTools.js 使用了 openModal(modal) :contentReference[oaicite:6]{index=6}
+  // 这里兼容：如果没全局 openModal，就用最基础的 display:flex
   if (typeof openModal === 'function') openModal(modal);
   else {
     modal.style.display = 'flex';
@@ -468,13 +491,13 @@ function openHidePoolsModal() {
 }
 
 function getHiddenPools() {
-  const STORAGE_KEY = 'wuwa_hidden_pools';
+  const STORAGE_KEY = 'miliastra_hidden_pools';
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const arr = JSON.parse(raw || '[]');
     return new Set(Array.isArray(arr) ? arr : []);
   } catch {
-    localStorage.removeItem('wuwa_hidden_pools');
+    localStorage.removeItem('miliastra_hidden_pools');
     return new Set();
   }
 }
@@ -491,43 +514,31 @@ async function openDeleteByTimeModal() {
     return;
   }
 
-  // 拉取抽卡记录并过滤当前 uid
-  const all = await window.electronAPI.getGachaRecords();
-  const records = Array.isArray(all) ? all.filter(r => String(r.player_id) === String(uid)) : [];
+  // 拉取记录并过滤当前 uid
+  const all = await window.electronAPI.invoke('get-miliastra-gacha-records');
+  const records = all.filter(r => r.uid === uid);
 
   // UI 填充
   document.getElementById('deleteByTimeUidText').textContent = uid;
   document.getElementById('deleteByTimeTotalText').textContent = records.length;
 
   // 计算最早/最晚
-  const times = records.map(parseRecordTime).filter(Boolean).sort((a, b) => a - b);
-
-  const startInput = document.getElementById('deleteStartTime');
-  const endInput = document.getElementById('deleteEndTime');
-
+  const times = records.map(parseRecordTime).filter(Boolean).sort((a,b)=>a-b);
   if (!times.length) {
-    document.getElementById('deleteByTimeRangeText').textContent =
-      '无法解析记录时间（请检查记录的时间字段）';
-
-    // 避免留着旧值
-    startInput.value = '';
-    endInput.value = '';
-    startInput.min = '';
-    startInput.max = '';
-    endInput.min = '';
-    endInput.max = '';
+    document.getElementById('deleteByTimeRangeText').textContent = '无法解析记录时间（请检查记录的时间字段）';
   } else {
     const minT = times[0];
     const maxT = times[times.length - 1];
-
     document.getElementById('deleteByTimeRangeText').textContent =
       `${minT.toLocaleString()}  ~  ${maxT.toLocaleString()}`;
 
     // 默认填满范围
+    const startInput = document.getElementById('deleteStartTime');
+    const endInput = document.getElementById('deleteEndTime');
     startInput.value = toDatetimeLocalValue(minT);
     endInput.value = toDatetimeLocalValue(maxT);
 
-    // 限制可选范围
+    // 限制可选范围（防止选到范围外）
     startInput.min = toDatetimeLocalValue(minT);
     startInput.max = toDatetimeLocalValue(maxT);
     endInput.min = toDatetimeLocalValue(minT);
@@ -542,8 +553,8 @@ async function openDeleteByTimeModal() {
   cancelBtn.onclick = close;
 
   confirmBtn.onclick = async () => {
-    const startStr = startInput.value;
-    const endStr = endInput.value;
+    const startStr = document.getElementById('deleteStartTime').value;
+    const endStr = document.getElementById('deleteEndTime').value;
 
     if (!startStr || !endStr) {
       animationMessage(false, '请选择起始时间与结束时间');
@@ -552,11 +563,8 @@ async function openDeleteByTimeModal() {
 
     const start = new Date(startStr);
     const end = new Date(endStr);
-
-    // 覆盖整分钟范围
     start.setSeconds(0, 0);
     end.setSeconds(59, 999);
-
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       animationMessage(false, '时间格式无效');
       return;
@@ -566,59 +574,35 @@ async function openDeleteByTimeModal() {
       return;
     }
 
-    // 预览删除条数
-    let previewCount = 0;
-    try {
-      const preview = await window.electronAPI.invoke('count-gacha-records-by-time', {
-        uid,
-        start: start.toISOString(),
-        end: end.toISOString(),
-        table: 'gacha_logs',
-      });
+    const preview = await window.electronAPI.invoke('count-gacha-records-by-time', {
+  uid,
+  start: start.toISOString(),
+  end: end.toISOString(),
+  table: 'miliastra_gacha',
+});
 
-      if (!preview?.success) {
-        animationMessage(false, preview?.message || '预览失败：无法统计将删除的条数');
-        return;
-      }
-      previewCount = Number(preview.count || 0);
-    } catch (e) {
-      animationMessage(false, `预览失败: ${e.message}`);
-      return;
-    }
-
-    if (previewCount <= 0) {
-      const goOn = confirm(
-        `该时间范围内预计删除 0 条记录。\n` +
-        `UID:${uid}\n${start.toLocaleString()} ~ ${end.toLocaleString()}\n` +
-        `仍要继续吗？`
-      );
-      if (!goOn) return;
-    } else {
-      const first = confirm(
-        `确定要删除 UID:${uid} 在该时间范围内的抽卡记录吗？\n` +
-        `${start.toLocaleString()} ~ ${end.toLocaleString()}\n` +
-        `预计删除：${previewCount} 条`
-      );
-      if (!first) return;
-    }
-
-    const second = confirm('再次确认：鸣潮需要从最新的数据开始删,且此操作不可撤销，仍要继续删除吗？');
+    const first = confirm(
+      `确定要删除 UID:${uid} 在该时间范围内的抽卡记录吗？\n` +
+      `${start.toLocaleString()} ~ ${end.toLocaleString()}\n` +
+      `预计删除：${preview.count} 条`
+    );
+    if (!first) return;
+    const second = confirm('再次确认：此操作不可撤销，仍要继续删除吗？');
     if (!second) return;
 
     try {
-      const res = await window.electronAPI.invoke('delete-gacha-records-by-time', {
-        uid,
-        start: start.toISOString(),
-        end: end.toISOString(),
-        table: 'gacha_logs',
-      });
+        const res = await window.electronAPI.invoke('delete-gacha-records-by-time', {
+          uid,
+          start: start.toISOString(),
+          end: end.toISOString(),
+          table: 'miliastra_gacha',
+        });
 
-      animationMessage(res?.success, res?.message || '删除完成');
-      if (res?.success) {
-        close();
-        await loadGachaRecords(uid);
-        applyHiddenPools();
-      }
+        animationMessage(res.success, res.message);
+        if (res.success) {
+          await loadGachaRecords(uid);
+          applyHiddenPools();
+        }
     } catch (err) {
       animationMessage(false, `删除失败: ${err.message}`);
     }
@@ -626,4 +610,4 @@ async function openDeleteByTimeModal() {
 }
 
 // 暴露初始化函数
-window.gachaWuwaInit = gachaWuwaInit;
+window.gachaMiliastraInit = gachaMiliastraInit;

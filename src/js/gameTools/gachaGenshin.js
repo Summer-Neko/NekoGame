@@ -71,7 +71,7 @@ async function loadGachaRecords(uid) {
     // 取得第一条记录的 lang 属性，若不存在则默认使用 'zh-cn'
     const lang = filteredRecords[0].lang || 'zh-cn';
     // 根据 lang 从后端获取对应的 commonItems
-    commonItems = await window.electronAPI.invoke('get-common-items', lang);
+    commonItems = await window.electronAPI.invoke('get-common-items', 'genshin', lang);
 
     const pools = categorizeRecords(filteredRecords);
     const GACHA_TYPE_ORDER = [
@@ -286,8 +286,9 @@ async function gachaGenshinInit() {
             const result = await window.electronAPI.invoke('fetchGenshinGachaData');
             animationMessage(result.success, result.message);
             if (result.success) {
-                const uid = document.querySelector('.selected-display').textContent;
-                await loadGachaRecords(uid); // 刷新后重新加载
+                const lastUid = await window.electronAPI.invoke('get-last-genshin-uid');
+                await loadPlayerUIDs(lastUid); // 更新下拉列表，把新 UID 加进去并选中
+                await loadGachaRecords(lastUid); // 真正加载这个新 UID 的数据
                 applyHiddenPools();
             }
         }catch (error) {

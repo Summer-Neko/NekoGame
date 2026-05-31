@@ -71,7 +71,7 @@ async function loadGachaRecords(uid) {
     // 取得第一条记录的 lang 属性，若不存在则默认使用 'zh-cn'
     const lang = filteredRecords[0].lang || 'zh-cn';
     // 根据 lang 从后端获取对应的 commonItems
-    commonItems = await window.electronAPI.invoke('get-common-items', lang);
+    commonItems = await window.electronAPI.invoke('get-common-items', 'zzz', lang);
 
     const pools = categorizeRecords(filteredRecords);
     const GACHA_TYPE_ORDER = [
@@ -306,8 +306,9 @@ async function gachaZzzInit() {
             const result = await window.electronAPI.invoke('fetchZzzGachaData');
             animationMessage(result.success, result.message);
             if (result.success) {
-                const uid = document.querySelector('.selected-display').textContent;
-                await loadGachaRecords(uid); // 刷新后重新加载
+                const lastUid = await window.electronAPI.invoke('get-last-zzz-uid');
+                await loadPlayerUIDs(lastUid);
+                await loadGachaRecords(lastUid);
                 applyHiddenPools();
             }
         }catch (error) {

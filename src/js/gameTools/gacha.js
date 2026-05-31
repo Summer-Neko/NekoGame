@@ -3,11 +3,13 @@ let commonItems = []; //这里是常驻
 
 // 判断是否为歪
 function isOffBanners(record, commonItems) {
-    return (record.card_pool_type === "角色活动跃迁" || record.card_pool_type === "光锥活动跃迁" ||
-        record.card_pool_type === "角色联动跃迁" || record.card_pool_type === "光锥联动跃迁" ||
-        record.card_pool_type === "角色活动唤取" || record.card_pool_type === "武器活动祈愿" || record.card_pool_type === "角色活动祈愿"
-        || record.card_pool_type === "独家频段"|| record.card_pool_type === "音擎频段")
-        && commonItems.includes(record.name);
+    const validPools = [
+        "角色活动跃迁", "光锥活动跃迁", "角色联动跃迁", "光锥联动跃迁",
+        "角色活动唤取", "武器活动祈愿", "角色活动祈愿", "独家频段", "音擎频段"
+    ];
+
+    if (!validPools.includes(record.card_pool_type)) return false;
+    return isCommonItem(record.name, record.timestamp || record.time, commonItems);
 }
 
 // 按卡池分类记录
@@ -25,14 +27,14 @@ function categorizeRecords(records) {
 
 // 抽数计算逻辑
 function calculateLastDraws(records, quality) {
-    let drawCount = -1; // 当前累计抽数
-    for (let i = 0; i < records.length; i++) { // 从头开始遍历
-        drawCount++;
+    let drawCount = 0;
+    for (let i = 0; i < records.length; i++) {
         if (records[i].quality_level === quality) {
-            return drawCount; // 找到目标星级，返回累计抽数
+            return drawCount;
         }
+        drawCount++;
     }
-    return drawCount; // 如果没有找到目标星级，返回总抽数
+    return drawCount;
 }
 
 function calculateMostDraws(records, quality) {
@@ -72,7 +74,7 @@ function calculateDrawsBetween(records, quality) {
 function calculateUpAverage(records) {
     const upRecords = records.filter(
         r => r.quality_level === 5
-        && !commonItems.includes(r.name)
+        && !isCommonItem(r.name, r.timestamp || r.time, commonItems)
         && (r.card_pool_type === "角色活动跃迁" || r.card_pool_type === "光锥活动跃迁" || r.card_pool_type === "角色活动唤取"
             || r.card_pool_type === "角色联动跃迁" || r.card_pool_type === "光锥联动跃迁"
             || r.card_pool_type === "武器活动祈愿" || r.card_pool_type === "角色活动祈愿" || r.card_pool_type === "武器活动唤取")
@@ -473,4 +475,24 @@ function getRenderedPoolTitles() {
   return Array.from(document.querySelectorAll('.card-pool .card-title'))
     .map(el => el.textContent.trim())
     .filter(Boolean);
+}
+
+// 判断一个物品在特定抽卡时间点是否算作常驻
+function isCommonItem(name, timestamp, commonItemsList) {
+    if (!timestamp) return false;
+
+    // 统一将"YYYY-MM-DD HH:mm:ss"替换为标准 ISO 格式以便正确转换时间戳
+    const pullTime = new Date(String(timestamp).replace(' ', 'T')).getTime();
+
+    return commonItemsList.some(item => {
+        if (typeof item === 'string') {
+            return item === name;
+        }
+        else if (typeof item === 'object' && item.name === name) {
+            const addedTime = new Date(item.addedTime.replace(' ', 'T')).getTime();
+            // 只有抽卡时间 >= 加入常驻的时间，才算常驻（算歪）
+            return pullTime >= addedTime;
+        }
+        return false;
+    });
 }

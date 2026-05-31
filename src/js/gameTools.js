@@ -87,7 +87,8 @@ function loadToolSubpage(toolPage) {
     }, 200);
 }
 
-const handleExport = async (gameType, getUidListChannel, exportDataChannel) => {
+
+window.handleExport = async (gameType, getUidListChannel, exportDataChannel) => {
         const modal = document.getElementById('uidSelectionModal');
         const uidListContainer = document.getElementById('uidListContainer');
         const confirmButton = document.getElementById('confirmUIDSelection');

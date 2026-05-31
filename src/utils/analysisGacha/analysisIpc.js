@@ -8,6 +8,7 @@ const db = db2; // 数据库实例
 require('./miHoMo/genShinIpc');
 require('./miHoMo/starRailIpc');
 require('./miHoMo/zzzIpc');
+require('./miHoMo/miliastraIpc');
 require('./deleteUID');
 require('./commonitems');
 require('./gachaDelete');

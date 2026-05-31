@@ -70,7 +70,7 @@ async function loadGachaRecords(uid) {
     // 取得第一条记录的 lang 属性，若不存在则默认使用 'zh-cn'
     const lang = filteredRecords[0].lang || 'zh-cn';
     // 根据 lang 从后端获取对应的 commonItems
-    commonItems = await window.electronAPI.invoke('get-common-items', lang);
+    commonItems = await window.electronAPI.invoke('get-common-items', 'starRail', lang);
     // selectUpItems = await window.electron.ipcRenderer.invoke('get-select-up-items', lang);
 
     const pools = categorizeRecords(filteredRecords);
@@ -288,8 +288,9 @@ async function gachaStarRailInit() {
             const result = await window.electronAPI.invoke('fetchStarRailGachaData');
             animationMessage(result.success, result.message);
             if (result.success) {
-                const uid = document.querySelector('.selected-display').textContent;
-                await loadGachaRecords(uid); // 刷新后重新加载
+                const lastUid = await window.electronAPI.invoke('get-last-starRail-uid');
+                await loadPlayerUIDs(lastUid);
+                await loadGachaRecords(lastUid);
                 applyHiddenPools();
             }
         }catch (error) {

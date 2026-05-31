@@ -4,10 +4,11 @@ const db = db2;
 
 // 白名单
 const ALLOWED_GACHA_TABLES = new Set([
-  'genshin_gacha',
-  'starRail_gacha',
-  'zzz_gacha',
-  'gacha_logs'
+    'genshin_gacha',
+    'starRail_gacha',
+    'zzz_gacha',
+    'gacha_logs',
+    'miliastra_gacha'
 ]);
 
 /** 转可比较的时间字符串 */
@@ -74,7 +75,8 @@ async function getUidColumn(table) {
     genshin_gacha: 'uid',
     starRail_gacha: 'uid',
     zzz_gacha: 'uid',
-    gacha_logs: 'player_id'
+    gacha_logs: 'player_id',
+    miliastra_logs: 'uid'
   };
   return map[table] || null;
 }

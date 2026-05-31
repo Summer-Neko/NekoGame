@@ -61,7 +61,10 @@ ipcMain.handle("delete-game", async (event, gameId) => {
     return new Promise((resolve, reject) => {
         deleteGame(gameId, (err) => {
             if (err) reject(err);
-            else resolve();
+            else {
+                initializeTrackedGames();
+                resolve();
+            }
         });
     });
 });
@@ -71,7 +74,10 @@ ipcMain.handle("update-game", async (event, gameData) => {
     return new Promise((resolve, reject) => {
         updateGame(gameData, (err) => {
             if (err) reject(err);
-            else resolve();
+            else {
+                initializeTrackedGames();
+                resolve();
+            }
         });
     });
 });

@@ -4,7 +4,7 @@ const { ipcMain } = require('electron');
 
 ipcMain.handle('delete-gacha-records', async (event, uid, table) => {
     try {
-        const allowedTables = ['genshin_gacha', 'starRail_gacha', 'zzz_gacha', 'gacha_logs'];
+        const allowedTables = ['genshin_gacha', 'starRail_gacha', 'zzz_gacha', 'miliastra_gacha', 'gacha_logs'];
         if (!allowedTables.includes(table)) {
             return { success: false, message: `非法的表名: ${table}` };
         }
