@@ -17,7 +17,8 @@ const defaultCommonItems = {
             { "name": "符玄", "addedTime": "2025-04-09 06:00:00" },
             { "name": "刃", "addedTime": "2025-04-09 06:00:00" },
             { "name": "云璃", "addedTime": "2026-04-22 06:00:00" },
-            { "name": "银枝", "addedTime": "2026-04-22 06:00:00" }
+            { "name": "银枝", "addedTime": "2026-04-22 06:00:00" },
+            { "name": "银狼", "addedTime": "2026-04-22 06:00:00" }
         ],
         "zh-tw": [
             "布洛妮婭", "瓦爾特", "克拉拉", "傑帕德", "姬子", "白露", "彥卿",
@@ -26,7 +27,8 @@ const defaultCommonItems = {
             { "name": "符玄", "addedTime": "2025-04-09 06:00:00" },
             { "name": "刃", "addedTime": "2025-04-09 06:00:00" },
             { "name": "雲璃", "addedTime": "2026-04-22 06:00:00" },
-            { "name": "銀枝", "addedTime": "2026-04-22 06:00:00" }
+            { "name": "銀枝", "addedTime": "2026-04-22 06:00:00" },
+            {"name": "銀狼", "addedTime": "2026-04-22 06:00:00" }
         ]
     },
     genshin: {

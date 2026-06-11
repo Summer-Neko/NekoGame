@@ -11,6 +11,10 @@ const GACHA_TYPE_MAP = {
     5: "新手唤取",
     6: "新手自选唤取",
     7: "感恩定向唤取",
+    8: "角色新旅唤取",
+    9: "武器新旅唤取",
+    10: "角色联动唤取",
+    11: "武器联动唤取",
 };
 
 const BASE_URL = "https://gmserver-api.aki-game2.com/gacha/record/query";
@@ -132,16 +136,20 @@ function parseGachaUrl(url) {
     const queryParams = new URLSearchParams(parsedUrl.search);
     const fragmentParams = new URLSearchParams(parsedUrl.hash.split("?")[1] || "");
 
+    const getParam = (keySnake, keyCamel) => {
+        return queryParams.get(keySnake) || fragmentParams.get(keySnake) ||
+               queryParams.get(keyCamel) || fragmentParams.get(keyCamel) || "";
+    };
+
     return {
-        playerId: queryParams.get("player_id") || fragmentParams.get("player_id") || "",
-        cardPoolId: queryParams.get("resources_id") || fragmentParams.get("resources_id") || "",
-        cardPoolType: parseInt(queryParams.get("gacha_type") || fragmentParams.get("gacha_type") || 0, 10),
-        languageCode: queryParams.get("lang") || fragmentParams.get("lang") || "zh-Hans",
-        serverId: queryParams.get("svr_id") || fragmentParams.get("svr_id") || "",
-        recordId: queryParams.get("record_id") || fragmentParams.get("record_id") || "0",
+        playerId: getParam("player_id", "playerId"),
+        cardPoolId: getParam("resources_id", "cardPoolId"),
+        cardPoolType: parseInt(getParam("gacha_type", "cardPoolType") || 0, 10),
+        languageCode: getParam("lang", "languageCode") || "zh-Hans",
+        serverId: getParam("svr_id", "serverId"),
+        recordId: getParam("record_id", "recordId") || "0",
     };
 }
-
 /**
  * 插入获取到的祈愿记录到数据库
  * @param {object[]} logs 需要插入的祈愿记录数组

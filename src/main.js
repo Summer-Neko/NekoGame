@@ -73,9 +73,9 @@ function createWindow() {
     loadBackground(mainWindow);
 
     // 打开开发者工具
-    mainWindow.webContents.once('dom-ready', () => {
-        mainWindow.webContents.openDevTools();
-    });
+    // mainWindow.webContents.once('dom-ready', () => {
+    //    mainWindow.webContents.openDevTools();
+    // });
     // 定义后全局导出 mainWindow
     global.mainWindow = mainWindow; // 更新global.mainWindow
     mainWindow.webContents.on('did-finish-load', () => {

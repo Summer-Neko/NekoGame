@@ -95,6 +95,13 @@
 
 
 /* 确保 game-details 显示为 flex 布局 */
+.game-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 15px;
+}
 .game-details {
     opacity: 0;
     transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
@@ -125,6 +132,7 @@
 }
 
 #game-name {
+    margin: 0;
     font-size: 1.5em;
     color: #ffffff;
 }
@@ -200,8 +208,7 @@
 .ellipsis-menu {
     position: relative;
     display: flex;
-    justify-content: flex-end;
-    margin-top: 10px;
+    margin-top: 0;
 }
 
 .menu-button {

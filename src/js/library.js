@@ -228,24 +228,27 @@ function showGameDetails(gameId) {
                 const rank = game.rank ? game.rank : "--";
                 detailsContainer.innerHTML = `
                     <div class="tab-content">
-                    <h2 id="game-name">${game.name}</h2>
-                    <p id="total-time">总时长: ${(game.total_time / 3600).toFixed(1)} h</p>
-                    <p id="average-daily-time">近6个月的平均每日游戏时长（出勤日）: ${avgDailyTime}</p>
-                    <p id="last-played">最后运行时间: ${game.last_played || '--'}</p>
-                    <p id="rank">总时长排名: ${game.rank || '--'}</p>
-                    <div class="ellipsis-menu">
-                        <button class="menu-button">⋮</button>
-                        <div class="menu-dropdown">
-                            <a href="#" id="edit-game">编辑游戏</a>
-                            <a href="#" id="delete-game">删除游戏</a>
+                        <div class="game-detail-header">
+                            <h2 id="game-name">${game.name}</h2>
+                            <div class="ellipsis-menu">
+                                <button class="menu-button">⋮</button>
+                                <div class="menu-dropdown">
+                                    <a href="#" id="edit-game">编辑游戏</a>
+                                    <a href="#" id="delete-game">删除游戏</a>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div id="daily-time-chart" class="chart-container">
-                    </div>
-                    <div class="game-trend">
-                        <div class="chart-header"><h3>出勤日时间趋势图</h3></div>
-                        <canvas id="game-trend-chart"></canvas>
-                    </div>
+                        
+                        <p id="total-time">总时长: ${(game.total_time / 3600).toFixed(1)} h</p>
+                        <p id="average-daily-time">近6个月的平均每日游戏时长（出勤日）: ${avgDailyTime}</p>
+                        <p id="last-played">最后运行时间: ${game.last_played || '--'}</p>
+                        <p id="rank">总时长排名: ${game.rank || '--'}</p>
+                        
+                        <div id="daily-time-chart" class="chart-container"></div>
+                        <div class="game-trend">
+                            <div class="chart-header"><h3>出勤日时间趋势图</h3></div>
+                            <canvas id="game-trend-chart"></canvas>
+                        </div>
                     </div>
                 `;
 
